@@ -18,7 +18,7 @@ export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
 
 # Go Language
 export GOPATH=$HOME/Documents/Kairos/golang
-export GOROOT=/usr/local/Cellar/go/1.7.3/libexec
+export GOROOT=/usr/local/Cellar/go/1.9/libexec
 export PATH=$PATH:$GOPATH/bin:$GOROOT/bin
 export LG=$HOME/Documents/Kairos/golang/src/github.com/KairosAerospace/leakyg
 alias govtest='go list ./... | grep -v vendor | xargs go test'
@@ -35,6 +35,8 @@ alias gpsbabel=/Applications/GPSBabelFE.app/Contents/MacOS/gpsbabel
 
 # Javascript - needs work
 export PATH="$HOME/.npm-packages/bin:/usr/local/Cellar/node/6.2.0/bin:$PATH"
+# Meteor
+export METEOR_PACKAGE_DIRS=../Vulcan/packages:../Vulcan-Starter/packages
 
 # Latex
 export PATH=$PATH:/Library/TeX/texbin

@@ -409,7 +409,6 @@ you should place your code here."
     (shell "*shell*payments")
     (shell "*shell*emails")
     (shell "*shell*events")
-    (shell "*shell*psql")
     )
   )
 
