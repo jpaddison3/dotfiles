@@ -1,0 +1,3 @@
+[submodule "intellij-settings"]
+	path = intellij-settings
+	url = git@github.com:jpaddison3/intellij-settings.git
