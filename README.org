@@ -1,7 +1,10 @@
 * JP Addison's Personal Configuration Files
 Welcome to the repository where I keep my configuration files.  Feel free to take whatever you find useful.  I try to comment these pretty liberally, so it should be pretty easy to follow.
+** Intellij
+I use the IDE Intellij for editing now. It has it's own submodule so it can automatically sync it's settings.  ideavimrc is the only file I manually edit.
+*** Submodules reading
+https://git-scm.com/book/en/v2/Git-Tools-Submodules
 ** Spacemacs
-Spacemacs is a great batteries included distribution of emacs.  http://spacemacs.org/
+Spacemacs is a batteries included distribution of emacs.  http://spacemacs.org/. Currently phasing this out in favor of Intellij
 ** Pure Emacs
 I no longer use this file, but it is nice to keep as reference.
-** TODO Move intellij files to sub-repo
