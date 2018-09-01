@@ -10,11 +10,13 @@ export CLICOLOR=1
 export LSCOLORS=ExFxBxDxCxegedabagacad
 alias ls='ls -GFh'
 
+# Hidden artifactory credentials
+if [ -f ~/.config/artifactory_envar ]; then . ~/.config/artifactory_envar; fi
+
 # Check /usr/local first - useful for homebrew and spacemacs
 export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
 
 # Go Language
-# TODO new laptop adjustments
 export GOPATH=$HOME/Documents/Kairos/golang
 export GOROOT=/usr/local/Cellar/go/1.9/libexec
 export PATH=$PATH:$GOPATH/bin:$GOROOT/bin
@@ -24,20 +26,30 @@ alias govtest='go list ./... | grep -v vendor | xargs go test'
 # Python
 alias py36='. ~/py36/bin/activate'
 
+# GDAL
+export PROJSO=/Library/Frameworks/PROJ.framework/PROJ
+export GDAL_DATA=/Users/jpaddison/Documents/MrSID_DSDK-9.1.0.4045-darwin13.universal.clang51/Raster_DSDK/3rd-party/share/gdal
+
 # GPSBabel
 alias gpsbabel=/Applications/GPSBabelFE.app/Contents/MacOS/gpsbabel
 
-# Javascript
-source "$HOME/.nvm/nvm.sh"
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-
+# Javascript - needs work
+export PATH="$HOME/.npm-packages/bin:/usr/local/Cellar/node/6.2.0/bin:$PATH"
 # Meteor
 export METEOR_PACKAGE_DIRS=../Vulcan/packages:../Vulcan-Starter/packages
 
-# PSQL
-export PATH="/usr/local/opt/postgresql@9.6/bin:$PATH"
+# Latex
+export PATH=$PATH:/Library/TeX/texbin
+
+# CUDA GPU
+export PATH=$PATH:/Developer/NVIDIA/CUDA-8.0/bin
+EXTRA_LD=/Developer/NVIDIA/CUDA-8.0/lib:/Developer/NVIDIA/cudnn
+export DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:$EXTRA_LD
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$EXTRA_LD
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 # Homebrew Coreutils
 alias timeout=gtimeout
