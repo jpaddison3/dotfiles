@@ -56,6 +56,8 @@ map <leader>rt :action Refactorings.QuickListPopupAction<cr>
 map <leader>sl :action NextSplitter<cr>
 " Back a splitter (dependent on having three splitters)
 map <leader>sk :action NextSplitter<cr> :action NextSplitter<cr>
+" Back a splitter (when you only have two and still try to use sk out of force of habit)
+" map <leader>sk :action NextSplitter<cr>
 map <leader>sh :action SplitHorizontally<cr>
 map <leader>sv :action SplitVertically<cr>
 " TODO rename file

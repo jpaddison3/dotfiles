@@ -22,7 +22,7 @@ export LG=$HOME/Documents/Kairos/golang/src/github.com/KairosAerospace/leakyg
 alias govtest='go list ./... | grep -v vendor | xargs go test'
 
 # Python
-alias py36='. ~/py36/bin/activate'
+alias py37='. ~/.venv/py37/bin/activate'
 
 # GPSBabel
 alias gpsbabel=/Applications/GPSBabelFE.app/Contents/MacOS/gpsbabel
@@ -34,7 +34,7 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 # Meteor
-export METEOR_PACKAGE_DIRS=../Vulcan/packages:../Vulcan-Starter/packages
+export METEOR_PACKAGE_DIRS=../Vulcan/packages
 
 # PSQL
 export PATH="/usr/local/opt/postgresql@9.6/bin:$PATH"
@@ -47,3 +47,6 @@ PERL5LIB="/Users/jpaddison/perl5/lib/perl5${PERL5LIB:+:${PERL5LIB}}"; export PER
 PERL_LOCAL_LIB_ROOT="/Users/jpaddison/perl5${PERL_LOCAL_LIB_ROOT:+:${PERL_LOCAL_LIB_ROOT}}"; export PERL_LOCAL_LIB_ROOT;
 PERL_MB_OPT="--install_base \"/Users/jpaddison/perl5\""; export PERL_MB_OPT;
 PERL_MM_OPT="INSTALL_BASE=/Users/jpaddison/perl5"; export PERL_MM_OPT;
+
+# heroku autocomplete setup
+HEROKU_AC_BASH_SETUP_PATH=/Users/jpaddison/Library/Caches/heroku/autocomplete/bash_setup && test -f $HEROKU_AC_BASH_SETUP_PATH && source $HEROKU_AC_BASH_SETUP_PATH;
