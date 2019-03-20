@@ -1,0 +1,5 @@
+" :help neovintageousrc for more
+
+" Spacemacs knows what's up
+let mapleader=<space>
+nnoremap <leader>fs :w!<CR>

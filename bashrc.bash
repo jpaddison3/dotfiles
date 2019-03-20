@@ -50,3 +50,17 @@ PERL_MM_OPT="INSTALL_BASE=/Users/jpaddison/perl5"; export PERL_MM_OPT;
 
 # heroku autocomplete setup
 HEROKU_AC_BASH_SETUP_PATH=/Users/jpaddison/Library/Caches/heroku/autocomplete/bash_setup && test -f $HEROKU_AC_BASH_SETUP_PATH && source $HEROKU_AC_BASH_SETUP_PATH;
+
+# Touch and open with idea
+function tidea {
+  if [ -z "$1" ]; then
+    echo "Usage: tidea <path/to/new/file.code"
+    echo ""
+    return 1
+  else
+    for n in $@
+    do
+      touch $n && idea $n
+    done
+  fi
+}
