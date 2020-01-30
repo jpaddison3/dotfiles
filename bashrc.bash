@@ -36,6 +36,9 @@ export NVM_DIR="$HOME/.nvm"
 # Meteor
 export METEOR_PACKAGE_DIRS=../Vulcan/packages
 
+# Mongodb
+export PATH="/usr/local/opt/mongodb-community@4.0/bin:$PATH"
+
 # PSQL
 export PATH="/usr/local/opt/postgresql@9.6/bin:$PATH"
 
@@ -64,3 +67,5 @@ function tidea {
     done
   fi
 }
+
+source "$HOME/.config/.git-completion.bash"
