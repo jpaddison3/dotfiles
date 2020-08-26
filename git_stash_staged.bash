@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# Stash staged files, keep unstaged files
+#
 set -e
 
 #Stash everything temporarily.  Keep staged files, discard everything else after stashing.

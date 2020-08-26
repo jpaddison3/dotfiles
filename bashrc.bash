@@ -1,6 +1,9 @@
 # Log my commands for use later
 export PROMPT_COMMAND='if [ "$(id -u)" -ne 0 ]; then echo "$(date "+%Y-%m-%d.%H:%M:%S") $(pwd) $(history 1)" >> ~/.logs/bash-history-$(date "+%Y-%m-%d").log; fi'
 
+# And allow searching
+alias loggrep="$HOME/Documents/dotfiles/loggrep.bash"
+
 # basic aliases
 alias flushdnscache='sudo killall -HUP mDNSResponder && echo "DNS caches flushed"'
 
@@ -68,4 +71,12 @@ function tidea {
   fi
 }
 
+# git scripts
+alias gitstashstaged="$HOME/Documents/dotfile/gitstashstaged.bash"
+
+# bash completions
 source "$HOME/.config/.git-completion.bash"
+[[ -r "/usr/local/etc/profile.d/bash_completion.sh" ]] && . "/usr/local/etc/profile.d/bash_completion.sh"
+
+# Hacky forum helper
+alias coss="$HOME/Documents/dotfiles/checkout-save-settings.bash"
