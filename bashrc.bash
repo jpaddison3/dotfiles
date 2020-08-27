@@ -48,6 +48,7 @@ export PATH="/usr/local/opt/postgresql@9.6/bin:$PATH"
 # Homebrew Coreutils
 alias timeout=gtimeout
 
+# Perl
 PATH="/Users/jpaddison/perl5/bin${PATH:+:${PATH}}"; export PATH;
 PERL5LIB="/Users/jpaddison/perl5/lib/perl5${PERL5LIB:+:${PERL5LIB}}"; export PERL5LIB;
 PERL_LOCAL_LIB_ROOT="/Users/jpaddison/perl5${PERL_LOCAL_LIB_ROOT:+:${PERL_LOCAL_LIB_ROOT}}"; export PERL_LOCAL_LIB_ROOT;
@@ -80,3 +81,6 @@ source "$HOME/.config/.git-completion.bash"
 
 # Hacky forum helper
 alias coss="$HOME/Documents/dotfiles/checkout-save-settings.bash"
+
+# Fuck off apple
+export BASH_SILENCE_DEPRECATION_WARNING=1

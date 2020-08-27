@@ -13,7 +13,7 @@ git stash save "$1"
 #Apply the original stash to get us back to where we started.
 git stash apply stash@{1}
 
-#Create a temporary patch to reverse the originally staged changes and apply it
+#"Revert" the diff of the staged files (the stash@0 is implicit in the show -p command) to remove it from the working changes
 git stash show -p | git apply -R
 
 #Delete the temporary stash
