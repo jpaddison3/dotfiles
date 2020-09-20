@@ -1,9 +1,10 @@
 // Bluetooth toggle
 //
-// Toggle your computer's connectivity to your bluetooth accessory
+// Toggle your mac's connectivity to your bluetooth accessory
 //
-// Can be paired with a tool like Better Touch Tool to make a keyboard shortcut
-// or touch bar button for single action disconnection.
+// Requires blueutil, and expects it to be installed at `/usr/local/bin/`. Can
+// be paired with a tool like Better Touch Tool to make a keyboard shortcut or
+// touch bar button for single action disconnection.
 #[macro_use]
 extern crate duct;
 use clap::{Arg, App};
