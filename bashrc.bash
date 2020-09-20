@@ -17,15 +17,12 @@ alias ls='ls -GFh'
 export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
 
 # Go Language
-# TODO new laptop adjustments
-export GOPATH=$HOME/Documents/Kairos/golang
+export GOPATH=$HOME/.go
 export GOROOT=/usr/local/Cellar/go/1.9/libexec
 export PATH=$PATH:$GOPATH/bin:$GOROOT/bin
-export LG=$HOME/Documents/Kairos/golang/src/github.com/KairosAerospace/leakyg
-alias govtest='go list ./... | grep -v vendor | xargs go test'
 
 # Python
-alias py37='. ~/.venv/py37/bin/activate'
+alias py38='. ~/.venv/py38/bin/activate'
 
 # GPSBabel
 alias gpsbabel=/Applications/GPSBabelFE.app/Contents/MacOS/gpsbabel
@@ -58,20 +55,6 @@ PERL_MM_OPT="INSTALL_BASE=/Users/jpaddison/perl5"; export PERL_MM_OPT;
 # heroku autocomplete setup
 HEROKU_AC_BASH_SETUP_PATH=/Users/jpaddison/Library/Caches/heroku/autocomplete/bash_setup && test -f $HEROKU_AC_BASH_SETUP_PATH && source $HEROKU_AC_BASH_SETUP_PATH;
 
-# Touch and open with idea
-function tidea {
-  if [ -z "$1" ]; then
-    echo "Usage: tidea <path/to/new/file.code"
-    echo ""
-    return 1
-  else
-    for n in $@
-    do
-      touch $n && idea $n
-    done
-  fi
-}
-
 # git scripts
 alias gitstashstaged="$HOME/Documents/dotfile/gitstashstaged.bash"
 
@@ -84,3 +67,11 @@ alias coss="$HOME/Documents/dotfiles/checkout-save-settings.bash"
 
 # Fuck off apple
 export BASH_SILENCE_DEPRECATION_WARNING=1
+
+# Google cloud
+# opam configuration
+test -r /Users/jpaddison/.opam/opam-init/init.sh && . /Users/jpaddison/.opam/opam-init/init.sh > /dev/null 2> /dev/null || true
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '/Users/jpaddison/Documents/open-source/google-cloud-sdk/path.bash.inc' ]; then . '/Users/jpaddison/Documents/open-source/google-cloud-sdk/path.bash.inc'; fi
+# The next line enables shell command completion for gcloud.
+if [ -f '/Users/jpaddison/Documents/open-source/google-cloud-sdk/completion.bash.inc' ]; then . '/Users/jpaddison/Documents/open-source/google-cloud-sdk/completion.bash.inc'; fi

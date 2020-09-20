@@ -115,5 +115,14 @@
     "[rust]": {
         "editor.defaultFormatter": "matklad.rust-analyzer",
         "editor.formatOnSave": true
-    }
+    },
+    "window.autoDetectColorScheme": true,
+    "workbench.preferredLightColorTheme": "Ayu Light",
+    "workbench.preferredDarkColorTheme": "Monokai",
+    "workbench.colorTheme": "Ayu Light",
+    "editor.cursorBlinking": "solid",
+    "python.pythonPath": "/Users/jpaddison/.venv/py38/bin/python",
+    "rust-analyzer.checkOnSave.overrideCommand": null,
+    "rust-analyzer.inlayHints.enable": true,
+    "explorer.confirmDelete": false
 }

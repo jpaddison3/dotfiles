@@ -1,0 +1,10 @@
+[package]
+name = "btoggle"
+version = "0.1.0"
+authors = ["JP Addison <johnpaddison@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+# blueutil
+clap = "2.33"
+duct = "0.13"
