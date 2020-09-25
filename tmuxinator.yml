@@ -1,0 +1,120 @@
+# ~/.tmuxinator/dev.yml
+name: dev
+root: ~/
+# Optional tmux socket
+# socket_name: foo
+# Runs before everything. Use it to start daemons etc.
+# pre: sudo /etc/rc.d/mysqld start
+# Project hooks
+# Runs on project start, always
+# on_project_start: command
+# Run on project start, the first time
+# on_project_first_start: command
+# Run on project start, after the first time
+# on_project_restart: command
+# Run on project exit ( detaching from tmux session )
+# on_project_exit: command
+# Run on project stop
+# on_project_stop: command
+# Runs in each window and pane before window/pane specific commands. Useful for setting up interpreter versions.
+# pre_window: rbenv shell 2.0.0-p247
+# Pass command line options to tmux. Useful for specifying a different tmux.conf.
+# tmux_options: -f ~/.tmux.mac.conf
+# Change the command to call tmux.  This can be used by derivatives/wrappers like byobu.
+# tmux_command: byobu
+# Specifies (by name or index) which window will be selected on project startup. If not set, the first window is used.
+# startup_window: editor
+# Specifies (by index) which pane of the specified window will be selected on project startup. If not set, the first pane is used.
+# startup_pane: 1
+# Controls whether the tmux session should be attached to automatically. Defaults to true.
+# attach: false
+# Runs after everything. Use it to attach to tmux with custom options etc.
+# post: tmux -CC attach -t dev
+windows:
+  - forum:
+      pre: nvm use
+      layout: tiled
+      root: ~/cea/Forum/EAForum
+      panes:
+        -
+        - meteor -s settings-dev.json
+        - meteor shell
+        - sleep 10 && meteor mongo
+  - forum-analytics:
+      pre: py38
+      layout: tiled
+      root: ~/cea/Forum/ForumAnalytics
+      panes:
+        -
+        - jupyter notebook --no-browser
+        - ssh -i ~/.ssh/cea_devops.pem ec2-user@ec2-54-236-42-138.compute-1.amazonaws.com
+        -
+  - parfit:
+      pre: nvm use
+      layout: tiled
+      root: ~/cea/parfit
+      panes:
+        - docker start pg
+        -
+        -
+        -
+  - parfit-s:
+      pre: nvm use
+      layout: tiled
+      root: ~/cea/parfit
+      panes:
+        - yarn run web
+        - yarn run db-notifications
+        - yarn run payments
+        - yarn run emails
+        - yarn run events
+        - yarn run people
+  - aletheia:
+      pre: nvm use
+      layout: even-horizontal
+      root: ~/cea/aletheia
+      panes:
+        -
+        - PORT=8300 yarn run start
+  - repl:
+      layout: even-horizontal
+      root: ~
+      panes:
+        - py38 && ipython
+        - node
+  - misc:
+      layout: tiled
+      root: ~
+      panes:
+        -
+        -
+        -
+        -
+  # - parfit-s:
+  #     pre:
+  #       - nvm use
+  #       - ~/Sites/scripts/parfit_postgres_ready.sh
+  #     layout: even-vertical
+  #     root: ~/Sites/ea/parfit
+  #     panes:
+  #       - yarn run web
+  #       - yarn run db-notifications
+  #       - yarn run payments
+  #       - yarn run emails
+  #       - yarn run events
+  #       - yarn run people
+  #       - pktriot start
+  # - psql:
+  #     layout: even-vertical
+  #     root: ~/Sites/ea/parfit
+  #     panes:
+  #       - psql -h parfit-staging.cm4g2jxq8i8x.us-east-1.rds.amazonaws.com --port=5432 --db=parfit --user=parfit_adm_lrv2
+  #       - psql -h parfit-read-replica-01.cm4g2jxq8i8x.us-east-1.rds.amazonaws.com --port=5432 --db=parfit --user=parfit_adm_q0q4
+  # - bash:
+  #     pre: nvm use default
+  #     layout: even-vertical
+  #     root: ~/Sites
+  #     panes:
+  #     - ssh-add -K
+  #     -
+  #     -
