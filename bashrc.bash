@@ -32,7 +32,7 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 # Mongodb
-export PATH="/usr/local/opt/mongodb-community@4.0/bin:$PATH"
+export PATH="/usr/local/opt/mongodb-community@4.2/bin:$PATH"
 
 # PSQL
 export PATH="/usr/local/opt/postgresql@9.6/bin:$PATH"
@@ -51,7 +51,7 @@ PERL_MM_OPT="INSTALL_BASE=/Users/jpaddison/perl5"; export PERL_MM_OPT;
 HEROKU_AC_BASH_SETUP_PATH=/Users/jpaddison/Library/Caches/heroku/autocomplete/bash_setup && test -f $HEROKU_AC_BASH_SETUP_PATH && source $HEROKU_AC_BASH_SETUP_PATH;
 
 ## git
-alias gitstashstaged="$HOME/Documents/dotfile/gitstashstaged.bash"
+alias gitstashstaged="$HOME/Documents/dotfiles/git_stash_staged.bash"
 # Hacky forum helper
 alias coss="$HOME/Documents/dotfiles/checkout-save-settings.bash"
 

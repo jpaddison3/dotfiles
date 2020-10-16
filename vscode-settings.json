@@ -26,6 +26,10 @@
         {"before": ["<leader>", "b", "u"], "commands": ["workbench.action.reopenClosedEditor"]},
         {"before": ["<leader>", "v", "0"], "commands": ["workbench.action.zoomReset"]},
         {"before": ["<leader>", "g", "g"], "commands": ["editor.action.revealDefinition"]},
+        {"before": ["<leader>", "g", "n"], "commands": ["merge-conflict.next"]},
+        {"before": ["<leader>", "g", "i"], "commands": ["merge-conflict.accept.incoming"]},
+        {"before": ["<leader>", "g", "b"], "commands": ["merge-conflict.accept.both"]},
+        {"before": ["<leader>", "g", "c"], "commands": ["merge-conflict.accept.current"]},
         {"before": ["<leader>", "c", "l"], "commands": ["editor.action.commentLine"]},
         {"before": ["<leader>", "c", "w"], "commands": ["rewrap.rewrapComment"]},
         {"before": ["<leader>", "p", "f"], "commands": ["workbench.action.quickOpen"]},
@@ -124,5 +128,6 @@
     "python.pythonPath": "/Users/jpaddison/.venv/py38/bin/python",
     "rust-analyzer.checkOnSave.overrideCommand": null,
     "rust-analyzer.inlayHints.enable": true,
-    "explorer.confirmDelete": false
+    "explorer.confirmDelete": false,
+    "editor.lineNumbers": "relative"
 }

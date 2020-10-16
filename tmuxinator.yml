@@ -76,6 +76,20 @@ windows:
       panes:
         -
         - PORT=8300 yarn run start
+  - live-psql:
+      layout: even-vertical
+      root: ~/cea/parfit
+      panes:
+        -
+        -
+  - static-sites:
+      layout: tiled
+      root: ~/cea/centreforeffectivealtruism-org
+      panes:
+        -
+        - cd build && http-server
+        -
+        -
   - repl:
       layout: even-horizontal
       root: ~
