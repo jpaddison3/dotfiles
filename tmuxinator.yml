@@ -49,16 +49,16 @@ windows:
         - jupyter notebook --no-browser
         - ssh -i ~/.ssh/cea_devops.pem ec2-user@ec2-54-236-42-138.compute-1.amazonaws.com
         -
-  - parfit:
+  - funds:
       pre: nvm use
       layout: tiled
       root: ~/cea/parfit
       panes:
         - docker start pg
+        - cd ../aletheia
         -
         -
-        -
-  - parfit-s:
+  - funds-procs:
       pre: nvm use
       layout: tiled
       root: ~/cea/parfit
@@ -69,13 +69,7 @@ windows:
         - yarn run emails
         - yarn run events
         - yarn run people
-  - aletheia:
-      pre: nvm use
-      layout: even-horizontal
-      root: ~/cea/aletheia
-      panes:
-        -
-        - PORT=8300 yarn run start
+        - cd ../aletheia
   - live-psql:
       layout: even-vertical
       root: ~/cea/parfit
@@ -88,14 +82,22 @@ windows:
       panes:
         -
         - cd build && http-server
-        -
-        -
+        - cd ../eaglobal-static
+        - cd ../eaglobal-static && cd build
   - repl:
       layout: even-horizontal
       root: ~
       panes:
         - py38 && ipython
         - node
+  - talon:
+      layout: tiled
+      root: ~/.talon
+      panes:
+        - tail -f talon.log
+        - cd user/knausj_talon
+        - cd ~/Documents/dotfiles
+        -
   - misc:
       layout: tiled
       root: ~
