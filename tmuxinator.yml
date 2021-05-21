@@ -32,14 +32,13 @@ root: ~/
 # post: tmux -CC attach -t dev
 windows:
   - forum:
-      pre: nvm use
       layout: tiled
       root: ~/cea/Forum/EAForum
       panes:
         -
-        - meteor -s settings-dev.json
-        - meteor shell
-        - sleep 10 && meteor mongo
+        -
+        -
+        -
   - forum-analytics:
       pre: py38
       layout: tiled
@@ -50,16 +49,14 @@ windows:
         - ssh -i ~/.ssh/cea_devops.pem ec2-user@ec2-54-236-42-138.compute-1.amazonaws.com
         -
   - funds:
-      pre: nvm use
       layout: tiled
       root: ~/cea/parfit
       panes:
         - docker start pg
         - cd ../aletheia
-        -
-        -
+        - cd ../aletheia-next
+        - cd ../aletheia-next
   - funds-procs:
-      pre: nvm use
       layout: tiled
       root: ~/cea/parfit
       panes:
@@ -88,7 +85,7 @@ windows:
       layout: even-horizontal
       root: ~
       panes:
-        - py38 && ipython
+        - py39 && ipython
         - node
   - talon:
       layout: tiled
@@ -127,7 +124,6 @@ windows:
   #       - psql -h parfit-staging.cm4g2jxq8i8x.us-east-1.rds.amazonaws.com --port=5432 --db=parfit --user=parfit_adm_lrv2
   #       - psql -h parfit-read-replica-01.cm4g2jxq8i8x.us-east-1.rds.amazonaws.com --port=5432 --db=parfit --user=parfit_adm_q0q4
   # - bash:
-  #     pre: nvm use default
   #     layout: even-vertical
   #     root: ~/Sites
   #     panes:

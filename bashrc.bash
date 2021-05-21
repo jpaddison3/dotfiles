@@ -10,9 +10,6 @@ alias loggrep="$HOME/Documents/dotfiles/loggrep.bash"
 # basic aliases
 alias flushdnscache='sudo killall -HUP mDNSResponder && echo "DNS caches flushed"'
 
-# pretty colors
-alias ls='ls -GFh'
-
 # Homebrew
 export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
 export HOMEBREW_NO_AUTO_UPDATE="1"
@@ -23,7 +20,7 @@ export GOROOT=/usr/local/Cellar/go/1.9/libexec
 export PATH=$PATH:$GOPATH/bin:$GOROOT/bin
 
 # Python
-alias py38='. ~/.venv/py38/bin/activate'
+alias py39='. ~/.venv/py39/bin/activate'
 
 # Javascript
 source "$HOME/.nvm/nvm.sh"
@@ -52,8 +49,6 @@ HEROKU_AC_BASH_SETUP_PATH=/Users/jpaddison/Library/Caches/heroku/autocomplete/ba
 
 ## git
 alias gitstashstaged="$HOME/Documents/dotfiles/git_stash_staged.bash"
-# Hacky forum helper
-alias coss="$HOME/Documents/dotfiles/checkout-save-settings.bash"
 
 # Rust
 export PATH="$HOME/.cargo/bin:$PATH"

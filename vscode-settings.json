@@ -1,133 +1,154 @@
 {
-    "editor.fontSize": 12,
-    "editor.tabSize": 2,
-    "editor.renderWhitespace": "all",
-    "editor.wordWrap": "wordWrapColumn",
-    "editor.wordWrapColumn": 100,
-    "editor.rulers": [80,100],
-    "editor.minimap.enabled": false,
-    "vim.useSystemClipboard": true,
-    "vim.leader": "<space>",
-    "vim.normalModeKeyBindingsNonRecursive": [
-        {"before": ["<leader>", "f", "s"], "commands": [":w"]},
-        {"before": ["<leader>", "f", "f"], "commands": ["extension.advancedNewFile"]},
-        {"before": ["<leader>", "f", "r"], "commands": ["fileutils.renameFile"]},
-        {"before": ["<leader>", "f", "g"], "commands": ["copyRelativeFilePath"]},
-        {"before": ["<leader>", "f", "e"], "commands": ["workbench.view.explorer"]},
-        {"before": ["<leader>", "s", "l"], "commands": ["workbench.action.focusNextGroup"]},
-        {"before": ["<leader>", "s", "h"], "commands": ["workbench.action.focusPreviousGroup"]},
-        {"before": ["<leader>", "s", "L"], "commands": ["workbench.action.moveEditorToNextGroup"]},
-        {"before": ["<leader>", "s", "H"], "commands": ["workbench.action.moveEditorToPreviousGroup"]},
-        {"before": ["<leader>", "w", "l"], "commands": ["workbench.action.nextEditorInGroup"]},
-        {"before": ["<leader>", "w", "h"], "commands": ["workbench.action.previousEditorInGroup"]},
-        {"before": ["<leader>", "w", "L"], "commands": ["workbench.action.moveEditorRightInGroup"]},
-        {"before": ["<leader>", "w", "H"], "commands": ["workbench.action.moveEditorLeftInGroup"]},
-        {"before": ["<leader>", "b", "o"], "commands": ["workbench.action.keepEditor"]},
-        {"before": ["<leader>", "b", "u"], "commands": ["workbench.action.reopenClosedEditor"]},
-        {"before": ["<leader>", "v", "0"], "commands": ["workbench.action.zoomReset"]},
-        {"before": ["<leader>", "g", "g"], "commands": ["editor.action.revealDefinition"]},
-        {"before": ["<leader>", "g", "n"], "commands": ["merge-conflict.next"]},
-        {"before": ["<leader>", "g", "i"], "commands": ["merge-conflict.accept.incoming"]},
-        {"before": ["<leader>", "g", "b"], "commands": ["merge-conflict.accept.both"]},
-        {"before": ["<leader>", "g", "c"], "commands": ["merge-conflict.accept.current"]},
-        {"before": ["<leader>", "c", "l"], "commands": ["editor.action.commentLine"]},
-        {"before": ["<leader>", "c", "w"], "commands": ["rewrap.rewrapComment"]},
-        {"before": ["<leader>", "p", "f"], "commands": ["workbench.action.quickOpen"]},
-        {"before": ["<leader>", "p", "g"], "commands": ["workbench.view.search"]},
-        {"before": ["<leader>", "m", "k"], "commands": ["editor.action.insertCursorAbove"]},
-        {"before": ["<leader>", "m", "j"], "commands": ["editor.action.insertCursorBelow"]},
-        {"before": ["<leader>", "m", "d"], "commands": ["editor.action.addSelectionToNextFindMatch"]},
-        {"before": ["<leader>", "l", "s"], "commands": ["workbench.action.editor.changeLanguageMode"]},
-        {"before": ["<leader>", "l", "f"], "commands": ["editor.action.formatDocument"],
-         "when": "editorHasDocumentFormattingProvider && editorHasDocumentFormattingProvider && editorTextFocus && !editorReadonly && !inCompositeEditor" },
-        {"before": ["<leader>", "e", "e"], "commands": ["editor.action.showHover"]},
-        {"before": ["<leader>", "e", "n"], "commands": ["editor.action.marker.next"]},
-        {"before": ["<leader>", "r", "r"], "commands": ["rust-analyzer.run"], "when": "inRustProject"},
-        {"before": ["<leader>", "r", "p"], "commands": ["workbench.action.showCommands"]},
-        {"before": ["Y"], "after": ["y", "$"]}
-    ],
-    "vim.visualModeKeyBindingsNonRecursive": [
-        {"before": ["<leader>", "c", "l"], "commands": ["editor.action.commentLine"]},
-        {"before": ["<leader>", "c", "b"], "commands": ["editor.action.blockComment"]},
-        {"before": ["<leader>", "m", "d"], "commands": ["editor.action.addSelectionToNextFindMatch"]},
-        {"before": ["<leader>", "l", "l"], "commands": ["turboConsoleLog.displayLogMessage"]},
-        {"before": [">"], "commands": ["editor.action.indentLines"]},
-        {"before": ["<"], "commands": ["editor.action.outdentLines"]}
-    ],
-    "search.useGlobalIgnoreFiles": true,
-    "files.trimTrailingWhitespace": true,
-    "files.insertFinalNewline": true,
-    "files.trimFinalNewlines": true,
-    "window.zoomLevel": 0,
-    "extensions.ignoreRecommendations": false,
-    "gitlens.hovers.currentLine.over": "line",
-    "gitlens.codeLens.enabled": false,
-    "gitlens.statusBar.enabled": false,
-    "colorize.languages": [
-        "css",
-        "sass",
-        "scss",
-        "less",
-        "postcss",
-        "sss",
-        "stylus",
-        "xml",
-        "svg",
-        "javascript",
-        "typescript",
-        "javascriptreact",
-        "typescriptreact"
-    ],
-    "todohighlight.include": [
-        "**/*.js",
-        "**/*.jsx",
-        "**/*.ts",
-        "**/*.tsx",
-        "**/*.rs",
-        "**/*.py",
-        "**/*.md"
-    ],
-    "todohighlight.keywords": [
-        "TODO;",
-        {
-            "text": "TODO:",
-            "fontWeight": "none",
-            "color": "none",
-            "backgroundColor": "none"
-        }, {
-            "text": "FIXME:",
-            "fontWeight": "none",
-            "color": "none",
-            "backgroundColor": "none"
-        }
-    ],
-    "todohighlight.defaultStyle": {
-        "fontWeight": "bold",
-        "color": "none",
-        "backgroundColor": "none"
-    },
-    "rust-analyzer.checkOnSave.command": "clippy",
-    "rust-analyzer.runnableEnv": [
-        {
-            "mask": "^test",
-            "env": {
-                "RUST_BACKTRACE": 0
-            }
-        }
-    ],
-    "todohighlight.isEnable": true,
-    "[rust]": {
-        "editor.defaultFormatter": "matklad.rust-analyzer",
-        "editor.formatOnSave": true
-    },
-    "window.autoDetectColorScheme": true,
-    "workbench.preferredLightColorTheme": "Ayu Light",
-    "workbench.preferredDarkColorTheme": "Monokai",
-    "workbench.colorTheme": "Ayu Light",
-    "editor.cursorBlinking": "solid",
-    "python.pythonPath": "/Users/jpaddison/.venv/py38/bin/python",
-    "rust-analyzer.checkOnSave.overrideCommand": null,
-    "rust-analyzer.inlayHints.enable": true,
-    "explorer.confirmDelete": false,
-    "editor.lineNumbers": "relative"
+  "editor.fontSize": 12,
+  "editor.tabSize": 2,
+  "editor.renderWhitespace": "all",
+  "editor.wordWrap": "wordWrapColumn",
+  "editor.wordWrapColumn": 100,
+  "editor.rulers": [80,100],
+  "editor.minimap.enabled": false,
+  "vim.useSystemClipboard": true,
+  "vim.leader": "<space>",
+  "vim.normalModeKeyBindingsNonRecursive": [
+      {"before": ["<leader>", "f", "s"], "commands": [":w"]},
+      {"before": ["<leader>", "f", "f"], "commands": ["extension.advancedNewFile"]},
+      {"before": ["<leader>", "f", "r"], "commands": ["fileutils.renameFile"]},
+      {"before": ["<leader>", "f", "g"], "commands": ["copyRelativeFilePath"]},
+      {"before": ["<leader>", "f", "e"], "commands": ["workbench.view.explorer"]},
+      {"before": ["<leader>", "s", "l"], "commands": ["workbench.action.focusNextGroup"]},
+      {"before": ["<leader>", "s", "h"], "commands": ["workbench.action.focusPreviousGroup"]},
+      {"before": ["<leader>", "s", "L"], "commands": ["workbench.action.moveEditorToNextGroup"]},
+      {"before": ["<leader>", "s", "H"], "commands": ["workbench.action.moveEditorToPreviousGroup"]},
+      {"before": ["<leader>", "w", "l"], "commands": ["workbench.action.nextEditorInGroup"]},
+      {"before": ["<leader>", "w", "h"], "commands": ["workbench.action.previousEditorInGroup"]},
+      {"before": ["<leader>", "w", "L"], "commands": ["workbench.action.moveEditorRightInGroup"]},
+      {"before": ["<leader>", "w", "H"], "commands": ["workbench.action.moveEditorLeftInGroup"]},
+      {"before": ["<leader>", "b", "o"], "commands": ["workbench.action.keepEditor"]},
+      {"before": ["<leader>", "b", "u"], "commands": ["workbench.action.reopenClosedEditor"]},
+      {"before": ["<leader>", "v", "0"], "commands": ["workbench.action.zoomReset"]},
+      {"before": ["<leader>", "g", "g"], "commands": ["editor.action.revealDefinition"]},
+      {"before": ["<leader>", "g", "r"], "commands": ["editor.action.goToReferences"]},
+      {"before": ["<leader>", "g", "n"], "commands": ["merge-conflict.next"]},
+      {"before": ["<leader>", "g", "i"], "commands": ["merge-conflict.accept.incoming"]},
+      {"before": ["<leader>", "g", "b"], "commands": ["merge-conflict.accept.both"]},
+      {"before": ["<leader>", "g", "c"], "commands": ["merge-conflict.accept.current"]},
+      {"before": ["<leader>", "c", "l"], "commands": ["editor.action.commentLine"]},
+      {"before": ["<leader>", "c", "w"], "commands": ["rewrap.rewrapComment"]},
+      {"before": ["<leader>", "p", "f"], "commands": ["workbench.action.quickOpen"]},
+      {"before": ["<leader>", "p", "g"], "commands": ["workbench.view.search"]},
+      {"before": ["<leader>", "m", "k"], "commands": ["editor.action.insertCursorAbove"]},
+      {"before": ["<leader>", "m", "j"], "commands": ["editor.action.insertCursorBelow"]},
+      {"before": ["<leader>", "m", "d"], "commands": ["editor.action.addSelectionToNextFindMatch"]},
+      {"before": ["<leader>", "l", "s"], "commands": ["workbench.action.editor.changeLanguageMode"]},
+      {"before": ["<leader>", "l", "f"], "commands": ["editor.action.formatDocument"],
+       "when": "editorHasDocumentFormattingProvider && editorHasDocumentFormattingProvider && editorTextFocus && !editorReadonly && !inCompositeEditor" },
+      {"before": ["<leader>", "e", "e"], "commands": ["editor.action.showHover"]},
+      {"before": ["<leader>", "e", "n"], "commands": ["editor.action.marker.next"]},
+      {"before": ["<leader>", "r", "r"], "commands": ["rust-analyzer.run"], "when": "inRustProject"},
+      {"before": ["<leader>", "r", "p"], "commands": ["workbench.action.showCommands"]},
+      {"before": ["Y"], "after": ["y", "$"]}
+  ],
+  "vim.visualModeKeyBindingsNonRecursive": [
+      {"before": ["<leader>", "c", "l"], "commands": ["editor.action.commentLine"]},
+      {"before": ["<leader>", "c", "b"], "commands": ["editor.action.blockComment"]},
+      {"before": ["<leader>", "m", "d"], "commands": ["editor.action.addSelectionToNextFindMatch"]},
+      {"before": [">"], "commands": ["editor.action.indentLines"]},
+      {"before": ["<"], "commands": ["editor.action.outdentLines"]},
+      {"before": ["<leader>", "l", "l"], "commands": ["turboConsoleLog.displayLogMessage"]},
+  ],
+  "search.useGlobalIgnoreFiles": true,
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  "extensions.ignoreRecommendations": false,
+  "gitlens.hovers.currentLine.over": "line",
+  "gitlens.codeLens.enabled": false,
+  "gitlens.statusBar.enabled": false,
+  "colorize.languages": [
+      "css",
+      "sass",
+      "scss",
+      "less",
+      "postcss",
+      "sss",
+      "stylus",
+      "xml",
+      "svg",
+      "javascript",
+      "typescript",
+      "javascriptreact",
+      "typescriptreact"
+  ],
+  "todohighlight.include": [
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.rs",
+      "**/*.py",
+      "**/*.md"
+  ],
+  "todohighlight.keywords": [
+      "TODO;",
+      {
+          "text": "TODO:",
+          "fontWeight": "none",
+          "color": "none",
+          "backgroundColor": "none"
+      }, {
+          "text": "FIXME:",
+          "fontWeight": "none",
+          "color": "none",
+          "backgroundColor": "none"
+      }
+  ],
+  "todohighlight.defaultStyle": {
+      "fontWeight": "bold",
+      "color": "none",
+      "backgroundColor": "none"
+  },
+  "rust-analyzer.checkOnSave.command": "clippy",
+  "rust-analyzer.runnableEnv": [
+      {
+          "mask": "^test",
+          "env": {
+              "RUST_BACKTRACE": 0
+          }
+      }
+  ],
+  "todohighlight.isEnable": true,
+  "[rust]": {
+      "editor.defaultFormatter": "matklad.rust-analyzer",
+      "editor.formatOnSave": true
+  },
+  "workbench.preferredLightColorTheme": "Ayu Light",
+  "editor.cursorBlinking": "solid",
+  "python.pythonPath": "/Users/jpaddison/.venv/py38/bin/python",
+  "rust-analyzer.checkOnSave.overrideCommand": null,
+  "rust-analyzer.inlayHints.enable": true,
+  "explorer.confirmDelete": false,
+  "editor.lineNumbers": "relative",
+  "[jsonc]": {
+      "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "window.autoDetectColorScheme": true,
+  "[typescriptreact]": {
+      "editor.defaultFormatter": "vscode.typescript-language-features"
+  },
+  "[javascript]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescript]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "turboConsoleLog.quote": "'",
+  "workbench.editorAssociations": [
+      {
+          "viewType": "jupyter.notebook.ipynb",
+          "filenamePattern": "*.ipynb"
+      }
+  ],
+  "python.showStartPage": false,
+"docker.showStartPage": false,
+"workbench.editor.untitled.hint": "hidden",
+"workbench.colorTheme": "Ayu Light"
 }
