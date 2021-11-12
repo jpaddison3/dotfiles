@@ -35,3 +35,7 @@ password () {
   inputlen="$((chars * 2))"
   openssl rand -base64 $inputlen | tr -dc A-Za-z0-9 | head -c$chars && echo ""
 }
+# openssl rand -base64 32 | tr -dc A-Za-z0-9
+
+# TODO; might not be all I need
+unsetopt share_history

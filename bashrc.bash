@@ -32,7 +32,7 @@ export NVM_DIR="$HOME/.nvm"
 export PATH="/usr/local/opt/mongodb-community@4.2/bin:$PATH"
 
 # PSQL
-export PATH="/usr/local/opt/postgresql@9.6/bin:$PATH"
+export PATH="/usr/local/opt/postgresql@14/bin:$PATH"
 
 # Homebrew Coreutils
 alias timeout=gtimeout
