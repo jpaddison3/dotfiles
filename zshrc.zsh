@@ -21,6 +21,7 @@ alias loggrepz='history -E 1 | rg'
 # fpath=(~/.zsh $fpath)
 # autoload -Uz compinit && compinit
 
+fpath+=$HOME/.zsh/pure
 autoload -U promptinit; promptinit
 prompt pure
 
@@ -39,3 +40,7 @@ password () {
 
 # TODO; might not be all I need
 unsetopt share_history
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion

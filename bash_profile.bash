@@ -21,3 +21,9 @@ test -r /Users/jpaddison/.opam/opam-init/init.sh && . /Users/jpaddison/.opam/opa
 if [ -f '/Users/jpaddison/Documents/open-source/google-cloud-sdk/path.bash.inc' ]; then . '/Users/jpaddison/Documents/open-source/google-cloud-sdk/path.bash.inc'; fi
 # The next line enables shell command completion for gcloud.
 if [ -f '/Users/jpaddison/Documents/open-source/google-cloud-sdk/completion.bash.inc' ]; then . '/Users/jpaddison/Documents/open-source/google-cloud-sdk/completion.bash.inc'; fi
+
+# Javascript
+source "$HOME/.nvm/nvm.sh"
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion

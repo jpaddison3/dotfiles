@@ -13,6 +13,13 @@ alias flushdnscache='sudo killall -HUP mDNSResponder && echo "DNS caches flushed
 # Homebrew
 export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
 export HOMEBREW_NO_AUTO_UPDATE="1"
+export HOMEBREW_PREFIX="/opt/homebrew";
+export HOMEBREW_CELLAR="/opt/homebrew/Cellar";
+export HOMEBREW_REPOSITORY="/opt/homebrew";
+export HOMEBREW_SHELLENV_PREFIX="/opt/homebrew";
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin${PATH+:$PATH}";
+export MANPATH="/opt/homebrew/share/man${MANPATH+:$MANPATH}:";
+export INFOPATH="/opt/homebrew/share/info:${INFOPATH:-}";
 
 # Go Language
 export GOPATH=$HOME/.go
@@ -21,12 +28,6 @@ export PATH=$PATH:$GOPATH/bin:$GOROOT/bin
 
 # Python
 alias py39='. ~/.venv/py39/bin/activate'
-
-# Javascript
-source "$HOME/.nvm/nvm.sh"
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 # Mongodb
 export PATH="/usr/local/opt/mongodb-community@4.2/bin:$PATH"

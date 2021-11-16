@@ -33,7 +33,7 @@ root: ~/
 windows:
   - forum:
       layout: tiled
-      root: ~/cea/Forum/EAForum
+      root: ~/cea/Forum/ForumMagnum
       panes:
         -
         -
@@ -48,25 +48,14 @@ windows:
         - jupyter notebook --no-browser
         - ssh -i ~/.ssh/cea_devops.pem ec2-user@ec2-54-236-42-138.compute-1.amazonaws.com
         -
-  - funds:
+  - lyra:
       layout: tiled
-      root: ~/cea/parfit
+      root: ~/cea
       panes:
-        - docker start pg
-        - cd ../aletheia
-        - cd ../aletheia-next
-        - cd ../aletheia-next
-  - funds-procs:
-      layout: tiled
-      root: ~/cea/parfit
-      panes:
-        - yarn run web
-        - yarn run db-notifications
-        - yarn run payments
-        - yarn run emails
-        - yarn run events
-        - yarn run people
-        - cd ../aletheia
+        - cd parfit && docker start pg
+        - cd lyra
+        - cd lyra
+        - cd lyra
   - live-psql:
       layout: even-vertical
       root: ~/cea/parfit
@@ -75,12 +64,12 @@ windows:
         -
   - static-sites:
       layout: tiled
-      root: ~/cea/centreforeffectivealtruism-org
+      root: ~/cea
       panes:
-        -
-        - cd build && http-server
+        - cd effectivealtruism-org
+        - cd effectivealtruism-org/build && http-server
         - cd ../eaglobal-static
-        - cd ../eaglobal-static && cd build
+        - cd ../eaglobal-static/build
   - repl:
       layout: even-horizontal
       root: ~
@@ -95,6 +84,14 @@ windows:
         - cd user/knausj_talon
         - cd ~/Documents/dotfiles
         -
+  - personal:
+      layout: tiled
+      root: ~/Documents
+      panes:
+        -
+        -
+        -
+        -
   - misc:
       layout: tiled
       root: ~
@@ -103,30 +100,3 @@ windows:
         -
         -
         -
-  # - parfit-s:
-  #     pre:
-  #       - nvm use
-  #       - ~/Sites/scripts/parfit_postgres_ready.sh
-  #     layout: even-vertical
-  #     root: ~/Sites/ea/parfit
-  #     panes:
-  #       - yarn run web
-  #       - yarn run db-notifications
-  #       - yarn run payments
-  #       - yarn run emails
-  #       - yarn run events
-  #       - yarn run people
-  #       - pktriot start
-  # - psql:
-  #     layout: even-vertical
-  #     root: ~/Sites/ea/parfit
-  #     panes:
-  #       - psql -h parfit-staging.cm4g2jxq8i8x.us-east-1.rds.amazonaws.com --port=5432 --db=parfit --user=parfit_adm_lrv2
-  #       - psql -h parfit-read-replica-01.cm4g2jxq8i8x.us-east-1.rds.amazonaws.com --port=5432 --db=parfit --user=parfit_adm_q0q4
-  # - bash:
-  #     layout: even-vertical
-  #     root: ~/Sites
-  #     panes:
-  #     - ssh-add -K
-  #     -
-  #     -
