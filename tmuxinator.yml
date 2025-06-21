@@ -32,14 +32,14 @@ root: ~/
 # post: tmux -CC attach -t dev
 windows:
   - 80k:
-      layout: tiled
-      root: ~/80k
+      layout: f63b,213x60,0,0{106x60,0,0[106x29,0,0,1,106x30,0,30,22],106x60,107,0[106x29,107,0,20,106x15,107,30,21,106x14,107,46,24]}
+      root: ~/80k/advisorbot/minerva
       panes:
         -
+        - npm run dev:log
         -
-        -
-        -
-        -
+        - npm run typecheck:watch:log
+        - npm run lint:watch:log
   - 80k-other:
       layout: tiled
       root: ~/80k
