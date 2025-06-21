@@ -27,7 +27,7 @@ export GOROOT=/usr/local/Cellar/go/1.9/libexec
 export PATH=$PATH:$GOPATH/bin:$GOROOT/bin
 
 # Python
-alias py39='. ~/.venv/py39/bin/activate'
+alias py313='. ~/venvs/py313/bin/activate'
 
 # Mongodb
 export PATH="/usr/local/opt/mongodb-community@4.2/bin:$PATH"
