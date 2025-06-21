@@ -1,6 +1,0 @@
-* Windows Layer
-This is a useful layer for working with 4 (maybe more soon) layers in full-screen mode.  Credit to Gary Bernhart for some of the functions.
-** Features
-Starts Spacemacs with four windows and opens a shell in the lower right.  Temporary buffers are opened in the bottom left.
-** Keybindings:
-| ~SPC o o~ | ~maximize-window-height~ | Expand window to maximum height |

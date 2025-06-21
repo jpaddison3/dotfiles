@@ -59,3 +59,6 @@ export EDITOR='vim'
 
 # Tmux
 alias mux="tmuxinator"
+
+# JS
+export PATH="$HOME/.yarn/bin:$PATH"
