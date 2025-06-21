@@ -31,6 +31,23 @@ root: ~/
 # Runs after everything. Use it to attach to tmux with custom options etc.
 # post: tmux -CC attach -t dev
 windows:
+  - 80k:
+      layout: tiled
+      root: ~/80k
+      panes:
+        -
+        -
+        -
+        -
+        -
+  - 80k-other:
+      layout: tiled
+      root: ~/80k
+      panes:
+        -
+        -
+        -
+        -
   - forum:
       layout: tiled
       root: ~/cea/Forum/ForumMagnum
@@ -39,58 +56,19 @@ windows:
         -
         -
         -
-  - forum-analytics:
-      pre: py38
-      layout: tiled
-      root: ~/cea/Forum/ForumAnalytics
-      panes:
-        -
-        - jupyter notebook --no-browser
-        - ssh -i ~/.ssh/cea_devops.pem ec2-user@ec2-54-236-42-138.compute-1.amazonaws.com
-        -
-  - lyra:
-      layout: tiled
-      root: ~/cea
-      panes:
-        - cd parfit && docker start pg
-        - cd lyra
-        - cd lyra
-        - cd lyra
-  - live-psql:
-      layout: even-vertical
-      root: ~/cea/parfit
-      panes:
-        -
-        -
-  - static-sites:
-      layout: tiled
-      root: ~/cea
-      panes:
-        - cd effectivealtruism-org
-        - cd effectivealtruism-org/build && http-server
-        - cd ../eaglobal-static
-        - cd ../eaglobal-static/build
   - repl:
       layout: even-horizontal
       root: ~
       panes:
         - py39 && ipython
         - node
-  - talon:
-      layout: tiled
-      root: ~/.talon
-      panes:
-        - tail -f talon.log
-        - cd user/knausj_talon
-        - cd ~/Documents/dotfiles
-        -
   - personal:
       layout: tiled
       root: ~/Documents
       panes:
         -
         -
-        -
+        - cd dotfiles
         -
   - misc:
       layout: tiled

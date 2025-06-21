@@ -27,12 +27,15 @@
     {"before": ["<leader>", "b", "o"], "commands": ["workbench.action.keepEditor"]},
     {"before": ["<leader>", "b", "u"], "commands": ["workbench.action.reopenClosedEditor"]},
     {"before": ["<leader>", "v", "0"], "commands": ["workbench.action.zoomReset"]},
+    {"before": ["<leader>", "v", "d"], "commands": ["notifications.hideToasts"]},
     {"before": ["<leader>", "g", "g"], "commands": ["editor.action.revealDefinition"]},
+    {"before": ["<leader>", "g", "d"], "commands": ["typescript.goToSourceDefinition"]},
     {"before": ["<leader>", "g", "r"], "commands": ["editor.action.goToReferences"]},
     {"before": ["<leader>", "g", "n"], "commands": ["merge-conflict.next"]},
     {"before": ["<leader>", "g", "i"], "commands": ["merge-conflict.accept.incoming"]},
     {"before": ["<leader>", "g", "b"], "commands": ["merge-conflict.accept.both"]},
     {"before": ["<leader>", "g", "c"], "commands": ["merge-conflict.accept.current"]},
+    {"before": ["<leader>", "g", "s"], "commands": ["workbench.view.scm"]},
     {"before": ["<leader>", "c", "l"], "commands": ["editor.action.commentLine"]},
     {"before": ["<leader>", "c", "w"], "commands": ["rewrap.rewrapComment"]},
     {"before": ["<leader>", "p", "f"], "commands": ["workbench.action.quickOpen"]},
@@ -69,21 +72,6 @@
   "gitlens.hovers.currentLine.over": "line",
   "gitlens.codeLens.enabled": false,
   "gitlens.statusBar.enabled": false,
-  "colorize.languages": [
-    "css",
-    "sass",
-    "scss",
-    "less",
-    "postcss",
-    "sss",
-    "stylus",
-    "xml",
-    "svg",
-    "javascript",
-    "typescript",
-    "javascriptreact",
-    "typescriptreact"
-  ],
   "todohighlight.include": [
     "**/*.js",
     "**/*.jsx",
@@ -95,17 +83,8 @@
   ],
   "todohighlight.keywords": [
     "TODO;",
-    {
-      "text": "TODO:",
-      "fontWeight": "none",
-      "color": "none",
-      "backgroundColor": "none"
-    }, {
-      "text": "FIXME:",
-      "fontWeight": "none",
-      "color": "none",
-      "backgroundColor": "none"
-    }
+    {"text": "TODO:", "fontWeight": "none", "color": "none", "backgroundColor": "none"},
+    {"text": "FIXME:", "fontWeight": "none", "color": "none", "backgroundColor": "none"}
   ],
   "todohighlight.defaultStyle": {
     "fontWeight": "bold",
@@ -116,9 +95,7 @@
   "rust-analyzer.runnableEnv": [
     {
       "mask": "^test",
-      "env": {
-        "RUST_BACKTRACE": 0
-      }
+      "env": {"RUST_BACKTRACE": 0}
     }
   ],
   "todohighlight.isEnable": true,
@@ -128,23 +105,22 @@
   },
   "workbench.preferredLightColorTheme": "Ayu Light",
   "editor.cursorBlinking": "solid",
-  "python.pythonPath": "/Users/jpaddison/.venv/py38/bin/python",
   "rust-analyzer.checkOnSave.overrideCommand": null,
   "rust-analyzer.inlayHints.enable": true,
   "explorer.confirmDelete": false,
   "editor.lineNumbers": "relative",
   "[jsonc]": {
-      "editor.defaultFormatter": "vscode.json-language-features"
+    "editor.defaultFormatter": "vscode.json-language-features"
   },
   "window.autoDetectColorScheme": true,
   "[typescriptreact]": {
-      "editor.defaultFormatter": "vscode.typescript-language-features"
+    "editor.defaultFormatter": "vscode.typescript-language-features"
   },
   "[javascript]": {
-      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "[typescript]": {
-      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "turboConsoleLog.quote": "'",
   "workbench.editorAssociations": {
@@ -155,7 +131,6 @@
   "workbench.editor.untitled.hint": "hidden",
   "codestream.email": "johnpaddison@gmail.com",
   "redhat.telemetry.enabled": false,
-  "python.defaultInterpreterPath": "/Users/jpaddison/.venv/py38/bin/python",
   "editor.inlineSuggest.enabled": true,
   "notebook.cellToolbarLocation": {
     "default": "right",
@@ -169,9 +144,24 @@
   "jest.autoRun": "off",
   "github.copilot.enable": {
     "*": true,
-    "yaml": false,
-    "plaintext": false,
-    "markdown": true
+    "plaintext": true,
+    "markdown": true,
+    "scminput": false,
+    "yaml": false
   },
-  "workbench.colorTheme": "Ayu Light"
+  "colorize.languages": ["javascript", "typescript"],
+  "git.autofetch": true,
+  "git.confirmSync": false,
+  "[html]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "githubPullRequests.pullBranch": "never",
+  "editor.wrappingIndent": "indent",
+  "vscode-pets.petType": "dog",
+  "workbench.colorTheme": "Ayu Light",
+  "workbench.preferredDarkColorTheme": "Night Owl (No Italics)",
+  "[python]": {
+    "editor.formatOnType": true
+  },
+  "window.zoomLevel": 1
 }

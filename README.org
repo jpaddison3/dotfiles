@@ -2,18 +2,10 @@
 Welcome to the repository where I keep my configuration files. This repository is going to be messy, and it's time I accept that. Not meant to be used without my context.
 ** Tools
 As of 2020-08, I use vscode (with vim emulation) for my editor. bash in iTerm2 is my shell. I program primarily in TypeScript. My favorite editor from a UI perspective was spacemacs. I really want the ~<leader> key key~ pattern to catch on.
-** Past text edtiors
-From most to least recent. I keep their files around for posterity.
-*** Intellij
-Switched to intellij with ideavim. Never loved it.
-*** Spacemacs
-http://spacemacs.org/ ❤️
-Oh man, magit was so nice. Those were the days. I think the go editor was actually pretty good.
-*** Pure Emacs
-I no longer use this file, but it is nice to keep as reference. Too many chords = wrist strain.
-*** Sublime
-Great editor to start out with. Predated this repo.
-*** The before times
-Before I was a professional developer I used a bunch of things. I think KomodoEdit was my python main?
-** TODOs
-*** TODO auto-symlink script
+** Setup
+Run `./newcomputer.bash` to set up symlinks and configurations on a new machine. This script will:
+- Create symlinks for shell configurations (bash, zsh)
+- Set up tmux and tmuxinator configurations
+- Link git helpers
+- Copy VSCode settings (macOS path)
+- Set up PostgreSQL configuration
