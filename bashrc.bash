@@ -1,6 +1,23 @@
 ### Contains the environment configuration that every shell or other environment
 ### will want. See bash_profile.bash for the bash-specific commands
 
+# Deduplicate PATH entries
+dedupe_path() {
+    local path_array=()
+    local IFS=':'
+    local seen=""
+
+    for dir in $PATH; do
+        if [[ ":$seen:" != *":$dir:"* ]]; then
+            path_array+=("$dir")
+            seen="$seen:$dir"
+        fi
+    done
+
+    PATH=$(IFS=':'; echo "${path_array[*]}")
+    export PATH
+}
+
 # Log my commands for use later
 export PROMPT_COMMAND='if [ "$(id -u)" -ne 0 ]; then echo "$(date "+%Y-%m-%d.%H:%M:%S") $(pwd) $(history 1)" >> ~/.logs/bash-history-$(date "+%Y-%m-%d").log; fi'
 
@@ -23,17 +40,13 @@ export INFOPATH="/opt/homebrew/share/info:${INFOPATH:-}";
 
 # Go Language
 export GOPATH=$HOME/.go
-export GOROOT=/usr/local/Cellar/go/1.9/libexec
-export PATH=$PATH:$GOPATH/bin:$GOROOT/bin
+export PATH=$PATH:$GOPATH/bin
 
 # Python
 alias py313='. ~/venvs/py313/bin/activate'
 
-# Mongodb
-export PATH="/usr/local/opt/mongodb-community@4.2/bin:$PATH"
-
 # PSQL
-export PATH="/usr/local/opt/postgresql@14/bin:$PATH"
+export PATH="/opt/homebrew/opt/postgresql@14/bin:$PATH"
 
 # Homebrew Coreutils
 alias timeout=gtimeout
@@ -62,3 +75,6 @@ alias mux="tmuxinator"
 
 # JS
 export PATH="$HOME/.yarn/bin:$PATH"
+
+# Clean up PATH duplicates
+dedupe_path
