@@ -36,7 +36,7 @@ windows:
       root: ~/80k/advisorbot/minerva
       panes:
         -
-        - npm run dev:log
+        - xx npm run dev:log
         -
         - npm run typecheck:watch:log
         - npm run lint:watch:log
@@ -64,11 +64,11 @@ windows:
         - node
   - personal:
       layout: tiled
-      root: ~/Documents
+      root: ~/personal-coding
       panes:
         -
         -
-        - cd dotfiles
+        - cd ../Documents/dotfiles
         -
   - misc:
       layout: tiled
