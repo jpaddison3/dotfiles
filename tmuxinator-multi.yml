@@ -1,0 +1,51 @@
+# ~/.tmuxinator/dev.yml
+name: <%= ENV['TMUX_SESSION'] || 'dev' %>
+root: ~/
+windows:
+  - 80k:
+      layout: f63b,213x60,0,0{106x60,0,0[106x29,0,0,1,106x30,0,30,22],106x60,107,0[106x29,107,0,20,106x15,107,30,21,106x14,107,46,24]}
+      root: ~/80k/advisorbot/<%= ENV['MINERVA_DIR'] || 'minerva' %>
+      panes:
+        -
+        - xx npm run dev:log
+        -
+        - npm run typecheck:watch:log
+        - npm run lint:watch:log
+  - 80k-other:
+      layout: tiled
+      root: ~/80k
+      panes:
+        -
+        -
+        -
+        -
+  - forum:
+      layout: tiled
+      root: ~/cea/Forum/ForumMagnum
+      panes:
+        -
+        -
+        -
+        -
+  - repl:
+      layout: even-horizontal
+      root: ~
+      panes:
+        - py313 && ipython
+        - node
+  - personal:
+      layout: tiled
+      root: ~/personal-coding
+      panes:
+        -
+        -
+        - cd ../Documents/dotfiles
+        -
+  - misc:
+      layout: tiled
+      root: ~
+      panes:
+        -
+        -
+        -
+        -
