@@ -80,5 +80,8 @@ alias mux-dev-claude2='TMUX_SESSION=claude2 MINERVA_DIR=minerva-claude2 tmuxinat
 # JS
 export PATH="$HOME/.yarn/bin:$PATH"
 
+# Docker
+export PATH="$PATH:/Applications/Docker.app/Contents/Resources/bin"
+
 # Clean up PATH duplicates
 dedupe_path
