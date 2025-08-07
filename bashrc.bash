@@ -58,9 +58,6 @@ PERL_LOCAL_LIB_ROOT="/Users/jpaddison/perl5${PERL_LOCAL_LIB_ROOT:+:${PERL_LOCAL_
 PERL_MB_OPT="--install_base \"/Users/jpaddison/perl5\""; export PERL_MB_OPT;
 PERL_MM_OPT="INSTALL_BASE=/Users/jpaddison/perl5"; export PERL_MM_OPT;
 
-# heroku autocomplete setup
-HEROKU_AC_BASH_SETUP_PATH=/Users/jpaddison/Library/Caches/heroku/autocomplete/bash_setup && test -f $HEROKU_AC_BASH_SETUP_PATH && source $HEROKU_AC_BASH_SETUP_PATH;
-
 ## git
 alias gitstashstaged="$HOME/Documents/dotfiles/git_stash_staged.bash"
 
