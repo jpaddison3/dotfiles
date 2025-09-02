@@ -9,8 +9,8 @@ windows:
         -
         - xx npm run dev:log
         -
-        - npm run typecheck:watch:log
-        - npm run lint:watch:log
+        - npm run typecheck:watch
+        - npm run lint:watch
   - 80k-other:
       layout: tiled
       root: ~/80k
