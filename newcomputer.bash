@@ -26,6 +26,10 @@ ln -sf $SCRIPTPATH/psqlrc ~/.psqlrc
 ln -sf $SCRIPTPATH/dotgithelpers.bash ~/.githelpers
 # You'll need to copy the git config yourself to edit your email in
 
+# Claude configuration
+mkdir -p ~/.claude
+ln -f $SCRIPTPATH/root-claude-md.md ~/.claude/CLAUDE.md
+
 # Software installation:
 # Manual install: pure prompt (brew failed), ohmyzsh, cargo, nvm, yarn
 brew install tmux tmuxinator reattach-to-user-namespace
