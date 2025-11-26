@@ -5,3 +5,6 @@ btoggle/target/*
 CLAUDE.md
 
 notes/
+
+# Contains MCP server secrets (auth tokens)
+claude-mcp-modes.json

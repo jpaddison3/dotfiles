@@ -28,7 +28,9 @@ ln -sf $SCRIPTPATH/dotgithelpers.bash ~/.githelpers
 
 # Claude configuration
 mkdir -p ~/.claude
+mkdir -p ~/.claude/mcp-backups
 ln -f $SCRIPTPATH/root-claude-md.md ~/.claude/CLAUDE.md
+chmod +x $SCRIPTPATH/claude-mcp-mode.bash
 
 # Software installation:
 # Manual install: pure prompt (brew failed), ohmyzsh, cargo, nvm, yarn
