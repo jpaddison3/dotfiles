@@ -11,9 +11,15 @@
 ## Git
 
 - Wait on my go ahead before committing or staging anything
+  - This applies even if you're fixing comments on a PR
 - If I ask you to commit something and we're on main, double check with me, I might be forgetting to ask you to make a branch first :p
 - Prefer `git add -u` over `git add .`. Add individual files with `git add <file>`.
-- Moving files in git is difficult to do while preserving history. Moves should be done in single commits with no changes to the file contents.
+- I tend to prefer new commits when making changes after a previous commit has been pushed, instead of amending.
+- Moving files in git is difficult to do while preserving history. Moves should be done in single commits with no changes to the file contents. That is:
+  - Start with a fresh working tree
+  - `git mv old-path new-path`
+  - `git commit --no-verify -m "move file from old-path to new-path"` (if you have pre-commit hooks that would naturally complain about the broken imports, skip them) (this is the only time I want you to use --no-verify)
+  - Then in a separate commit, make any changes needed to the file contents or imports.
 
 ### PR creation protocol
 
