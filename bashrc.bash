@@ -83,5 +83,8 @@ export PATH="$HOME/.yarn/bin:$PATH"
 # Docker
 export PATH="$PATH:/Applications/Docker.app/Contents/Resources/bin"
 
+# Local overrides (not checked into git)
+[ -f ~/.bashrc.local ] && source ~/.bashrc.local
+
 # Clean up PATH duplicates
 dedupe_path

@@ -33,6 +33,8 @@ mkdir -p ~/.claude/skills
 ln -f $SCRIPTPATH/root-claude-md.md ~/.claude/CLAUDE.md
 chmod +x $SCRIPTPATH/claude-mcp-mode.bash
 ln -sf $SCRIPTPATH/claude-skills/review-codex ~/.claude/skills/review-codex
+ln -sf $SCRIPTPATH/claude-skills/review-claude ~/.claude/skills/review-claude
+ln -sf $SCRIPTPATH/claude-skills/review-multi ~/.claude/skills/review-multi
 
 # Software installation:
 # Manual install: pure prompt (brew failed), ohmyzsh, cargo, nvm, yarn
