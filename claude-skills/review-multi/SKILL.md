@@ -12,7 +12,7 @@ allowed-tools:
 
 # Review (Parallel Claude + Codex)
 
-This skill runs two independent code reviews in parallel — one from a Claude subagent and one from Codex (GPT-5.2) — then presents both sets of findings.
+This skill runs two independent code reviews in parallel — one via `/review-claude` and one via `/review-codex` — then presents both sets of findings.
 
 ## Usage
 
@@ -33,67 +33,19 @@ Modes can be combined: `/review-multi fix base main`
 - If arguments contain "base <branch>" → base branch mode
 - Default → pass-through mode
 
-**Determine the diff/review target:**
-- Default: uncommitted changes
-- With base branch: changes against that branch
+### Gather review procedures
 
-### Launch both reviews in parallel
+Read the skill definitions from the sibling skill directories:
+- `claude-skills/review-claude/SKILL.md`
+- `claude-skills/review-codex/SKILL.md`
 
-Use **two Task tool calls in a single message** so they run concurrently.
+These define the review procedures for each reviewer. Follow their execution instructions, but with two modifications:
+1. **Both reviews run in parallel** — launch them simultaneously using two Task tool calls in a single message.
+2. **Both run in pass-through mode** regardless of the mode argument — mode handling is done here, not by the individual reviews.
 
-#### Task 1: Claude review
+For the Claude review, use `subagent_type: "general-purpose"` (do not specify a model). For the Codex review, use `subagent_type: "Bash"`. Pass along the base branch argument if present.
 
-`subagent_type: "general-purpose"` — do **not** specify a model.
-
-The prompt should instruct the subagent to:
-
-1. Read the project's `CLAUDE.md` files — check the project root and `~/.claude/CLAUDE.md` (global). Follow any file links or references found in them and read those files too.
-
-2. Run `git status` and the appropriate `git diff` command (`git diff HEAD` for uncommitted, `git diff <branch>...HEAD` for base branch) to understand the changes under review. For untracked files, read them directly.
-
-3. Explore the surrounding codebase as needed to understand context.
-
-4. Perform a full review of the changes for **correctness** and **quality**, with particular attention to:
-
-   a) **Types:** Flag type casts (require a comment at minimum) and weak typings like `Record<string, string>`.
-
-   b) **Fail fast, fail loud:** Flag patterns that hide missing data (`foo?.bar ?? ""`), error catching without `recordError`-ing or re-throwing.
-
-   c) **Halfway refactoring:** Flag `NEW_VAR = x; OLD_VAR = NEW_VAR` patterns, re-exports instead of updating consumers (exception: API boundaries).
-
-   d) **General correctness and quality.**
-
-5. Ignore these issues inside test files. When in doubt, mention it.
-
-6. **Do not make any changes.** This is a review only.
-
-#### Task 2: Codex review
-
-`subagent_type: "Bash"`.
-
-Run the following two commands sequentially:
-
-```bash
-codex review [--uncommitted OR --base <branch>]
-```
-
-Then:
-
-```bash
-codex exec resume --last "A few things I like to double check with code that my AI coding agent has produced:
-
-1) Types:
-   a) Are there any type casts that it added. (I often find it doesn't tell me about them like I ask it to.) It's required to at least add a comment explaining them, but I like to review them myself in any case.
-   b) Are there any weak typings, such as Record<string, string> or similar.
-
-2) We follow a \"Fail fast, fail loud\" philosophy here. I want you to carefully review what the code does when expected information is missing. The classic thing I don't want is \`foo?.bar ?? \"\"\` – that's just hiding the fact that data is missing. I also don't like catching errors without \`recordError\`-ing them or re-throwing.
-
-3) (Pet peeve): when refactoring, it likes to go halfway. \`NEW_VAR = x; OLD_VAR = NEW_VAR; // For backwards compatibility\`. Or similar for re-exporting variables/functions that have moved. It should fix the consumer to use the new name, with the exception of server/client API boundaries.
-
-You may ignore these issues inside test files. When in doubt, tell me about something you're unsure about.
-
-**IMPORTANT**: Do not make any changes. This is only a review."
-```
+Remember: Launch both the Claude and Codex reviews in parallel (two Task calls in one message). Don't forget the Codex follow-up step (step 2 with specific criteria).
 
 ### Output handling
 
