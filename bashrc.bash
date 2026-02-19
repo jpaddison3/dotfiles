@@ -67,9 +67,6 @@ export PATH="$HOME/.cargo/bin:$PATH"
 # Set editor
 export EDITOR='vim'
 
-# Claude Code MCP mode switching
-alias cmode="$HOME/Documents/dotfiles/claude-mcp-mode.bash"
-
 # Tmux
 alias mux="tmuxinator"
 alias mux-dev='tmuxinator start multi'
