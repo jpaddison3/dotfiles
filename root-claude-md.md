@@ -3,6 +3,7 @@
 ## bash-ing
 
 - Use `trash` instead of `rm` to delete files / folders
+- Always use relative paths when referencing files in the repo. E.g. `Bash(/Users/jpaddison/foo/bar)` should be `Bash(./bar)`.
 
 ## Tests
 
@@ -20,6 +21,7 @@
   - `git mv old-path new-path`
   - `git commit --no-verify -m "move file from old-path to new-path"` (if you have pre-commit hooks that would naturally complain about the broken imports, skip them) (this is the only time I want you to use --no-verify)
   - Then in a separate commit, make any changes needed to the file contents or imports.
+- Never use `git -C`.
 
 ### PR creation protocol
 
