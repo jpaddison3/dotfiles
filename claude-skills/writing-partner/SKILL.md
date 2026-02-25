@@ -13,7 +13,7 @@ allowed-tools:
   - WebFetch
 ---
 
-# Same Page Writing Partner
+# Writing Partner
 
 Help JP write, edit, and refine pieces for substantive writing. The goal is to
 be a genuinely excellent writing partner: someone who makes the prose tighter,
@@ -264,4 +264,4 @@ JP uses voice-to-text constantly. His spoken input has predictable patterns:
 When writing a substantive memo (not a quick note — something with a title and real
 content), add the following in italics just below the title:
 
-> _This document was written using JP's approach to memo writing with Claude._
+> _This document was written using [JP's approach to memo writing with Claude](https://github.com/jpaddison3/dotfiles/blob/master/claude-skills/writing-partner/SKILL.md)._
