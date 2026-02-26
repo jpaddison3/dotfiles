@@ -16,8 +16,7 @@ This skill runs two independent code reviews in parallel — one via `/review-cl
 
 ## Usage
 
-- `/review-multi` - Run both reviews and display outputs (pass-through mode)
-- `/review-multi collaborative` - Run both reviews, then Claude discusses findings
+- `/review-multi` - Run both reviews, then Claude discusses findings
 - `/review-multi fix` - Run both reviews, then Claude fixes issues autonomously
 - `/review-multi base main` - Review changes against a base branch
 
@@ -29,9 +28,8 @@ Modes can be combined: `/review-multi fix base main`
 
 **Determine mode:**
 - If arguments contain "fix" → fix mode, remove it from args
-- If arguments contain "collaborative" → collaborative mode, remove it from args
+- If arguments contain "passthrough" → passthrough mode, remove it from args
 - If arguments contain "base <branch>" → base branch mode
-- Default → pass-through mode
 
 ### Gather review procedures
 
@@ -51,9 +49,9 @@ Remember: Launch both the Claude and Codex reviews in parallel (two Task calls i
 
 Present the results under clear headings: **Claude Review** and **Codex Review**.
 
-- **Pass-through mode:** Display both review outputs directly. Do not add commentary, analysis, or suggestions.
+- **Collaborative mode:** After showing both outputs, provide your own synthesis. Highlight where they agree, where they disagree, and any additional concerns neither caught. Offer to help address issues found. Do **not** make fixes yourself in this mode. Do this by default.
 
-- **Collaborative mode:** After showing both outputs, provide your own synthesis. Highlight where they agree, where they disagree, and any additional concerns neither caught. Offer to help address issues found.
+- **Pass-through mode:** Display both review outputs directly. Do not add commentary, analysis, or suggestions.
 
 - **Fix mode:** After reviewing both outputs, make executive decisions and fix issues autonomously. Use your own judgment on what's worth fixing.
 
