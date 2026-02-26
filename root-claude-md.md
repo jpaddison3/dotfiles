@@ -3,7 +3,12 @@
 ## bash-ing
 
 - Use `trash` instead of `rm` to delete files / folders
-- Always use relative paths when referencing files in the repo. E.g. `Bash(/Users/jpaddison/foo/bar)` should be `Bash(./bar)`.
+- The security model of Claude Code is designed to be careful around what commands can be run. Please observe the following guidelines to ensure your commands work without me having to manually approve them:
+  - Always use relative paths when referencing files in the repo. E.g. `Bash(/Users/jpaddison/foo/bar)` should be `Bash(./bar)`.
+  - Run scripts with `Bash(./script.sh)` rather than `Bash(bassh ./script.sh)`. The with the former the Claude Code harness can grant access to that specific script, the latter requires permission for all commands that start with `bash`.
+  - Never quote a - if you can help it. Prefer echo "***" if you want to print a separator line. (Though consider avoiding the pattern altogether.)
+  - Avoid running `foo && bar`. Run `foo` in one command, then `bar` in a separate command. The harness gets wary of combined commands based on a hueristic that I haven't fully reverse engineered.
+  - If I reject your command and say "Simpler", please review the above.
 
 ## Tests
 
