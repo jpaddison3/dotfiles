@@ -58,3 +58,5 @@ Present the results under clear headings: **Claude Review** and **Codex Review**
   **One warning:** Your judgment tends to be too lenient on type system issues, fail-fast violations, and backwards-compatibility hacks. When either reviewer flags these, lean toward fixing them rather than dismissing them.
 
   After fixing, briefly summarize what you changed and why. If you skipped any flagged issues, explain your reasoning.
+
+**The default mode is collaborative** — if no mode argument is provided, synthesize the findings and offer to help with fixes, but don't fix autonomously.

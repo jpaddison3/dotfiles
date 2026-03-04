@@ -1,0 +1,18 @@
+# ~/.tmuxinator/mux-personal.yml
+name: mux-personal
+root: ~/
+windows:
+  - personal:
+      layout: tiled
+      root: ~/personal-coding
+      panes:
+        -
+        -
+        - cd ../Documents/dotfiles
+        -
+  - repl:
+      layout: even-horizontal
+      root: ~
+      panes:
+        - py313 && ipython
+        - node

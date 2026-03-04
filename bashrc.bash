@@ -70,6 +70,7 @@ export EDITOR='vim'
 # Tmux
 alias mux="tmuxinator"
 alias mux-dev='tmuxinator start multi'
+alias mux-personal='tmuxinator start mux-personal'
 # Minerva Claude instances
 alias mux-dev-claude1='TMUX_SESSION=claude1 MINERVA_DIR=minerva-claude1 tmuxinator start multi'
 alias mux-dev-claude2='TMUX_SESSION=claude2 MINERVA_DIR=minerva-claude2 tmuxinator start multi'

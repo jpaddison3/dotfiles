@@ -19,6 +19,7 @@ setopt INC_APPEND_HISTORY
 setopt EXTENDED_HISTORY
 
 alias loggrepz='history -E 1 | rg'
+alias fix-chrome-mcp='~/Documents/dotfiles/fix-chrome-mcp.sh'
 
 # # git completion
 # zstyle ':completion:*:*:git:*' script ~/.zsh/git-completion.bash

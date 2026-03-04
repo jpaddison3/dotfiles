@@ -7,7 +7,7 @@
   - Always use relative paths when referencing files in the repo. E.g. `Bash(/Users/jpaddison/foo/bar)` should be `Bash(./bar)`.
   - Run scripts with `Bash(./script.sh)` rather than `Bash(bassh ./script.sh)`. The with the former the Claude Code harness can grant access to that specific script, the latter requires permission for all commands that start with `bash`.
   - Never quote a - if you can help it. Prefer echo "***" if you want to print a separator line. (Though consider avoiding the pattern altogether.)
-  - Avoid running `foo && bar`. Run `foo` in one command, then `bar` in a separate command. The harness gets wary of combined commands based on a hueristic that I haven't fully reverse engineered.
+  - Avoid running `foo && bar` or `foo; bar;`. Run `foo` in one command, then `bar` in a separate command. The harness gets wary of combined commands based on a hueristic that I haven't fully reverse engineered.
   - If I reject your command and say "Simpler", please review the above.
 
 ## Tests
@@ -18,7 +18,6 @@
 
 - Wait on my go ahead before committing or staging anything
   - This applies even if you're fixing comments on a PR
-- If I ask you to commit something and we're on main, double check with me, I might be forgetting to ask you to make a branch first :p
 - Prefer `git add -u` over `git add .`. Add individual files with `git add <file>`.
 - I tend to prefer new commits when making changes after a previous commit has been pushed, instead of amending.
 - Moving files in git is difficult to do while preserving history. Moves should be done in single commits with no changes to the file contents. That is:
@@ -27,12 +26,17 @@
   - `git commit --no-verify -m "move file from old-path to new-path"` (if you have pre-commit hooks that would naturally complain about the broken imports, skip them) (this is the only time I want you to use --no-verify)
   - Then in a separate commit, make any changes needed to the file contents or imports.
 - Never use `git -C`.
+- Prefer git commit -m "message" without EOF markers or cat, etc, unless otherwise requested
 
 ### PR creation protocol
 
 - Create a file in `notes/pr-<branch-name>.md` with the PR title and description
 - After my review, use the gh CLI to create the PR using the (potentially updated) notes file as the body
   - (Assuming we're in a github-hosted repo, otherwise I'll create the PR manually)
+
+## Chrome MCP
+
+If the Chrome MCP tools (`mcp__claude-in-chrome__*`) return "Browser extension is not connected", run `fix-chrome-mcp` and ask JP to restart Claude Code. The root cause is a feature flag (`tengu_copper_bridge`) that forces a broken cloud bridge path. See `~/personal-coding/fix-chrome-mcp/chrome-extension-debugging.md` for details.
 
 ## Human coauthor info
 

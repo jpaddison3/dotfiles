@@ -15,6 +15,7 @@ ln -sf $SCRIPTPATH/zshrc.zsh ~/.zshrc
 ln -sf $SCRIPTPATH/tmuxconfig.conf ~/.tmux.conf
 mkdir -p ~/.tmuxinator
 ln -sf $SCRIPTPATH/tmuxinator-multi.yml ~/.tmuxinator/multi.yml
+ln -sf $SCRIPTPATH/tmuxinator-personal.yml ~/.tmuxinator/mux-personal.yml
 # Note on pure prompt: I had to manually install
 
 # Text editor

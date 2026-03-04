@@ -21,4 +21,9 @@ Stage and commit the current changes. Follow the standard git commit protocol
 including from the user's preferences. If on main/master, check CLAUDE.md for
 branch policies and create a new branch if needed.
 
-Run each command one at a time, though you may queue them, don't use `&&`. For commit messages, use the Write tool to write the message to a file, then `git commit -F <file>`. Use `project_root/tmp/commit-msg.txt` if a `tmp/` directory exists in the project root, otherwise fall back to `/tmp/commit-msg.txt`. This keeps the command single-line so it matches the allowed-tools pattern.
+Run each command one at a time, though you may queue them, don't use `&&`.
+
+For commit messages, use the Write tool to write the message to a file, then
+`git commit -F <file>`. Use `project_root/tmp/commit-msg-[short-descriptor].txt`
+if a `tmp/` directory exists in the project root, otherwise fall back to `/tmp`.
+This keeps the command single-line so it matches the allowed-tools pattern.
