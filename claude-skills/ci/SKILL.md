@@ -27,3 +27,6 @@ For commit messages, use the Write tool to write the message to a file, then
 `git commit -F <file>`. Use `project_root/tmp/commit-msg-[short-descriptor].txt`
 if a `tmp/` directory exists in the project root, otherwise fall back to `/tmp`.
 This keeps the command single-line so it matches the allowed-tools pattern.
+
+Example: `project_root/tmp/commit-msg-pr-428-review-fixes.txt` (Make it not
+conflict with another commit message file.)

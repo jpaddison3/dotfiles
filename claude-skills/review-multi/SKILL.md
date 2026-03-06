@@ -49,7 +49,7 @@ Remember: Launch both the Claude and Codex reviews in parallel (two Task calls i
 
 Present the results under clear headings: **Claude Review** and **Codex Review**.
 
-- **Collaborative mode:** After showing both outputs, provide your own synthesis. Highlight where they agree, where they disagree, and any additional concerns neither caught. Offer to help address issues found. Do **not** make fixes yourself in this mode. Do this by default.
+- **Collaborative mode:** After showing both outputs, provide your own sythesis. Deduplicate the findings, and summarize the points to address. Offer to help address issues found. Do **not** make fixes yourself in this mode. Do this by default.
 
 - **Pass-through mode:** Display both review outputs directly. Do not add commentary, analysis, or suggestions.
 
