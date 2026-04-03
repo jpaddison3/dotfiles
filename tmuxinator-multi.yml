@@ -8,7 +8,7 @@ windows:
       panes:
         -
         -
-        - xx npm run dev:log
+        - xx<%= ENV['MINERVA_PORT'] ? " PORT=#{ENV['MINERVA_PORT']}" : '' %> npm run dev:log
         -
   - 80k-other:
       layout: tiled

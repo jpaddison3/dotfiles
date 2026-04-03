@@ -52,14 +52,59 @@ Then **launch all three processes in parallel** (single message, three tool call
 
 After the fetch completes, check `bot_status` in the output. Use your judgment:
 
-- **Copilot hasn't reviewed and PR is < 10 min old:** Copilot typically takes ~6 min. Consider telling the user you'll wait, then sleep for a reasonable duration and re-fetch. But if the user says to proceed, proceed.
-- **Gemini hasn't reviewed and PR is < 5 min old:** Gemini typically finishes in 1-3 min. Consider a brief wait.
+- **Copilot hasn't reviewed and PR is < 10 min old:** Copilot typically finishes in under 10 min. Wait bit longer. After 10 minutes, go with what you have.
+- **Gemini hasn't reviewed and PR is > 10 min old:** Gemini typically finishes in under 5 min. Consider a brief wait. After 10 minutes, go with what you have.
 - **Both have reviewed**, or the PR is old enough that missing bots likely aren't coming: proceed.
 - **In doubt:** Report what you see and ask the user.
 
 ### Step 3: Synthesize all findings
 
 Read all outputs from the three parallel processes. Deduplicate findings across sources — if Claude, Codex, and Gemini all flag the same issue, that's one issue (note the agreement). Assign each unique issue a canonical number.
+
+### Step 4: Product research notes
+
+Check if this repo is one of the following product repos (match against the `origin` remote URL):
+- `eighty-thousand-hours/minerva` (may be checked out under various directory names like `minerva`, `minerva-claude1`, etc.)
+- `80000hours/job-board`
+
+If it is **not** one of these repos, skip this step entirely.
+
+If it **is** a product repo, write a descriptive PR summary for the product research system. This is a **factual, descriptive** document — not a review. Do not include review opinions, recommendations, or code quality judgments. Focus on what changed and its product implications.
+
+1. Write a file at `notes/YYYY-MM-DD-pr-NNN-slug.md` (in the current repo's `notes/` directory) using this template:
+
+   ```markdown
+   ---
+   date: YYYY-MM-DD
+   tags: [pr-summary, PRODUCT-AREA]
+   source: pr-summary
+   status: raw
+   pr: NUMBER
+   author: GITHUB-USERNAME
+   ---
+
+   # PR #NUMBER: TITLE
+
+   ## What changed
+   Brief summary of the diff — what was added/modified/removed.
+
+   ## Why
+   Motivation and context from the PR description and diff.
+
+   ## Product area
+   Which part of the product this touches (e.g. advisorbot, career-quiz, explore-jobs, job-board).
+
+   ## User-facing changes
+   Any behavior changes a user would notice. "None" is fine.
+
+   ## Links
+   - PR: URL
+   ```
+
+2. Copy it to the product research folder:
+   ```
+   ~/Documents/dotfiles/copy-to-research.sh notes/YYYY-MM-DD-pr-NNN-slug.md
+   ```
 
 ### Output handling
 
