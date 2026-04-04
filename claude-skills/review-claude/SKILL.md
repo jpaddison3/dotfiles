@@ -1,7 +1,8 @@
 ---
 name: review-claude
-description: Run a full code review for correctness and quality using an independent Claude subagent
+description: Run a full code review for correctness and quality using five focused parallel subagents
 allowed-tools:
+  - Agent
   - Task
   - Read
   - Edit
@@ -12,7 +13,7 @@ allowed-tools:
 
 # Review with Claude
 
-This skill launches an independent Claude subagent to perform a full code review for correctness and quality.
+This skill launches five focused review subagents in parallel — each with a narrow mandate — then aggregates their findings. Inspired by the `/simplify` pattern of specialized parallel agents.
 
 ## Usage
 
@@ -33,52 +34,102 @@ Modes can be combined: `/review-claude fix base main`
 - If arguments contain "base <branch>" → base branch mode
 - Default → pass-through mode
 
-**Determine the diff instruction** for the subagent:
-- Default: review uncommitted changes (`git diff HEAD`)
-- With base branch: review changes against that branch (`git diff <branch>...HEAD`)
+**Determine the diff command:**
+- Default: `git diff HEAD` (uncommitted changes)
+- With base branch: `git diff <branch>...HEAD`
 
-### Launch the review subagent
+### Step 1: Gather context
 
-Use the **Task** tool with `subagent_type: "general-purpose"`. Do **not** specify a model (it will inherit yours).
+Before launching agents, run the diff command yourself and capture the output. You'll pass the full diff text to each agent in its prompt so they don't all independently run git commands.
 
-The prompt should instruct the subagent to:
+Also read the project's `CLAUDE.md` files — check the project root and `~/.claude/CLAUDE.md` (global). Follow any file links or references found in them. You'll include the relevant project conventions in each agent's prompt.
 
-1. Read the project's `CLAUDE.md` files — check the project root and `~/.claude/CLAUDE.md` (global). Follow any file links or references found in them and read those files too. These provide important project conventions and context.
+### Step 2: Launch five review agents in parallel
 
-2. Run `git status` and the appropriate `git diff` command to understand the full set of changes under review. For untracked files, read them directly.
+Use the **Agent** tool to launch **all five agents concurrently** in a single message. This ensures targeted reviews and the parallelism maintains speed. Pass each agent the full diff and relevant project conventions so it has complete context. Each agent should also explore the surrounding codebase as needed to understand context for the changes.
 
-3. Explore the surrounding codebase as needed to understand context for the changes.
+Each agent must **not make any changes** — review only. Issues may be ignored inside test files. When in doubt about whether something is an issue, the agent should mention it.
 
-4. Perform a full review of the changes for **correctness** and **quality**, with particular attention to:
+#### Agent 1: Correctness
 
-   a) **Types:**
-      - Flag any type casts. These require at minimum a comment explaining them, but flag them for human review regardless.
-      - Flag weak typings, such as `Record<string, string>` or similar.
+Bug hunt. Focus on things that are **wrong or will break**:
 
-   b) **Fail fast, fail loud:**
-      - Carefully review what the code does when expected information is missing.
-      - Flag patterns like `foo?.bar ?? ""` — these hide missing data.
-      - Flag error catching without `recordError`-ing or re-throwing.
+- Logic errors, off-by-ones, incorrect edge cases, race conditions.
+- Null/undefined access that will throw at runtime.
+- Incorrect assumptions about data shapes, API contracts, or return values.
+- State mutations in the wrong order or at the wrong time.
+- Missing error handling at system boundaries (external APIs, user input, file I/O).
+- Security issues: injection, XSS, unvalidated input, exposed secrets.
 
-   c) **Halfway refactoring:**
-      - Flag patterns like `NEW_VAR = x; OLD_VAR = NEW_VAR; // For backwards compatibility`.
-      - Flag re-exporting variables/functions that have moved instead of updating consumers.
-      - Exception: server/client API boundaries.
+Do not flag style issues, naming, or "could be cleaner" — that's another agent's job.
 
-   d) **General correctness and quality** — anything else that looks wrong, risky, or could be improved.
+#### Agent 2: Code Quality
 
-5. These issues may be ignored inside test files. When in doubt about whether something is an issue, mention it.
+Review for craftsmanship and maintainability:
 
-6. **Do not make any changes.** This is a review only.
+- Redundant state: state that duplicates existing state, cached values that could be derived, observers/effects that could be direct calls.
+- Parameter sprawl: adding new parameters instead of generalizing or restructuring.
+- Copy-paste with slight variation: near-duplicate blocks that should be unified.
+- Leaky abstractions: exposing internal details or breaking existing abstraction boundaries.
+- Stringly-typed code: raw strings where constants, enums, or branded types already exist.
+- Unnecessary comments: comments explaining WHAT (well-named identifiers already do that), narrating the change, or referencing the task/caller. Keep only non-obvious WHY (hidden constraints, subtle invariants, workarounds).
+- Unnecessary JSX nesting: wrapper elements that add no layout value.
+- Clarity over brevity: nested ternaries should be if/else or switch. Flag overly clever one-liners.
+
+#### Agent 3: Codebase Standards
+
+Review for adherence to the project's established conventions. The agent receives the project's CLAUDE.md content and should flag deviations:
+
+- **Types:**
+  - Flag any type casts. These require at minimum a comment explaining them, but flag them for human review regardless.
+  - Flag weak typings, such as `Record<string, string>` or similar.
+
+- **Fail fast, fail loud:**
+  - Carefully review what the code does when expected information is missing.
+  - Flag patterns like `foo?.bar ?? ""` — these hide missing data.
+  - Flag error catching without `recordError`-ing or re-throwing.
+
+- **Halfway refactoring:**
+  - Flag patterns like `NEW_VAR = x; OLD_VAR = NEW_VAR; // For backwards compatibility`.
+  - Flag re-exporting variables/functions that have moved instead of updating consumers.
+  - Exception: server/client API boundaries.
+
+- Any other project-specific conventions from CLAUDE.md (import ordering, naming, component patterns, etc.).
+
+#### Agent 4: Code Reuse
+
+Search the codebase for existing code that the changes should be using instead of writing new:
+
+- Search for existing utilities and helpers that could replace newly written code. Look for similar patterns elsewhere in the codebase — common locations are utility directories, shared modules, and files adjacent to the changed ones.
+- Flag new functions that duplicate existing functionality. Suggest the existing function to use instead.
+- Flag inline logic that could use an existing utility — hand-rolled string manipulation, manual path handling, custom environment checks, ad-hoc type guards.
+
+This agent should spend most of its time **exploring the codebase**, not just reading the diff.
+
+#### Agent 5: Efficiency
+
+Review for performance and resource usage:
+
+- Unnecessary work: redundant computations, repeated file reads, duplicate network/API calls, N+1 patterns.
+- Missed concurrency: independent operations run sequentially when they could run in parallel.
+- Hot-path bloat: new blocking work added to startup or per-request/per-render hot paths.
+- Recurring no-op updates: state/store updates that fire unconditionally — add change-detection guards. Also: if a wrapper function takes an updater/reducer callback, verify it honors same-reference returns (or whatever the "no change" signal is).
+- Unnecessary existence checks: pre-checking file/resource existence before operating (TOCTOU anti-pattern) — operate directly and handle the error.
+- Memory: unbounded data structures, missing cleanup, event listener leaks.
+- Overly broad operations: reading entire files/collections when only a portion is needed.
+
+### Step 3: Aggregate findings
+
+Wait for all five agents to complete. Collect their outputs and present the results.
 
 ### Output handling
 
-- **Pass-through mode:** Display the subagent's review output directly. Do not add commentary, analysis, or suggestions. Just show what the subagent said.
+- **Pass-through mode:** Display each agent's findings under its category heading. Do not add commentary.
 
-- **Collaborative mode:** After showing the review output, provide your own analysis. Note agreements, disagreements, or additional concerns the subagent may have missed. Offer to help address any issues found.
+- **Collaborative mode:** Display findings, then provide your own synthesis. Deduplicate across agents (if correctness and efficiency both flag the same issue, that's one issue — note the agreement). Add your own judgment on each finding.
 
-- **Fix mode:** After reviewing the subagent's output, make executive decisions and fix issues autonomously. Use your own judgment on what's worth fixing.
+- **Fix mode:** Synthesize and deduplicate findings first, then fix issues autonomously. Use your own judgment on what's worth fixing.
 
-  **One warning:** Your judgment tends to be too lenient on type system issues, fail-fast violations, and backwards-compatibility hacks. When the subagent flags these, lean toward fixing them rather than dismissing them.
+  **One warning:** Your judgment tends to be too lenient on type system issues, fail-fast violations, and backwards-compatibility hacks. When any agent flags these, lean toward fixing them rather than dismissing them.
 
   After fixing, briefly summarize what you changed and why. If you skipped any flagged issues, explain your reasoning.
