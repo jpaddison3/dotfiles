@@ -1,6 +1,6 @@
 ---
 name: review-claude
-description: Run a full code review for correctness and quality using five focused parallel subagents
+description: Run a full code review for correctness and quality using six focused parallel subagents
 allowed-tools:
   - Agent
   - Task
@@ -13,7 +13,7 @@ allowed-tools:
 
 # Review with Claude
 
-This skill launches five focused review subagents in parallel — each with a narrow mandate — then aggregates their findings. Inspired by the `/simplify` pattern of specialized parallel agents.
+This skill launches six focused review subagents in parallel — each with a narrow mandate — then aggregates their findings. Inspired by the `/simplify` pattern of specialized parallel agents.
 
 ## Usage
 
@@ -44,9 +44,9 @@ Before launching agents, run the diff command yourself and capture the output. Y
 
 Also read the project's `CLAUDE.md` files — check the project root and `~/.claude/CLAUDE.md` (global). Follow any file links or references found in them. You'll include the relevant project conventions in each agent's prompt.
 
-### Step 2: Launch five review agents in parallel
+### Step 2: Launch six review agents in parallel
 
-Use the **Agent** tool to launch **all five agents concurrently** in a single message. This ensures targeted reviews and the parallelism maintains speed. Pass each agent the full diff and relevant project conventions so it has complete context. Each agent should also explore the surrounding codebase as needed to understand context for the changes.
+Use the **Agent** tool to launch **all six agents concurrently** in a single message. This ensures targeted reviews and the parallelism maintains speed. Pass each agent the full diff and relevant project conventions so it has complete context. Each agent should also explore the surrounding codebase as needed to understand context for the changes.
 
 Each agent must **not make any changes** — review only. Issues may be ignored inside test files. When in doubt about whether something is an issue, the agent should mention it.
 
@@ -59,9 +59,8 @@ Bug hunt. Focus on things that are **wrong or will break**:
 - Incorrect assumptions about data shapes, API contracts, or return values.
 - State mutations in the wrong order or at the wrong time.
 - Missing error handling at system boundaries (external APIs, user input, file I/O).
-- Security issues: injection, XSS, unvalidated input, exposed secrets.
 
-Do not flag style issues, naming, or "could be cleaner" — that's another agent's job.
+Do not flag style issues, naming, or "could be cleaner" — that's another agent's job. Do not flag security issues — that's another agent's job.
 
 #### Agent 2: Code Quality
 
@@ -106,7 +105,19 @@ Search the codebase for existing code that the changes should be using instead o
 
 This agent should spend most of its time **exploring the codebase**, not just reading the diff.
 
-#### Agent 5: Efficiency
+#### Agent 5: Security
+
+Focused security review. Only flag issues where you're >80% confident of actual exploitability — minimize false positives. Trace data flow from user inputs to sensitive operations.
+
+- **Injection:** SQL injection, command injection in system calls/subprocesses, template injection, NoSQL injection, path traversal in file operations.
+- **Auth & authorization:** Authentication bypass logic, privilege escalation paths, authorization logic bypasses, session management flaws, JWT vulnerabilities.
+- **Secrets & crypto:** Hardcoded API keys/passwords/tokens, weak cryptographic algorithms, improper key storage, certificate validation bypasses.
+- **Code execution:** Remote code execution via deserialization (pickle, YAML, etc.), eval injection, XSS (reflected, stored, DOM-based) — but note that React/Angular are generally safe unless using `dangerouslySetInnerHTML` or similar.
+- **Data exposure:** Sensitive data in logs (secrets, PII — not URLs), API endpoint data leakage, debug information exposure in production.
+
+**Exclusions:** Do not flag denial of service, rate limiting, resource exhaustion, theoretical race conditions, outdated dependencies, or missing hardening measures. Environment variables and CLI flags are trusted. Client-side JS/TS does not need auth checks (that's the server's job).
+
+#### Agent 6: Efficiency
 
 Review for performance and resource usage:
 
@@ -120,7 +131,7 @@ Review for performance and resource usage:
 
 ### Step 3: Aggregate findings
 
-Wait for all five agents to complete. Collect their outputs and present the results.
+Wait for all six agents to complete. Collect their outputs and present the results.
 
 ### Output handling
 

@@ -38,9 +38,9 @@ Modes can be combined: `/review-pr fix base develop`
 
 Read `claude-skills/review-multi/SKILL.md` to understand how to launch the Claude and Codex reviews. It in turn references `claude-skills/review-claude/SKILL.md` and `claude-skills/review-codex/SKILL.md`.
 
-Then **launch all 7 processes in parallel** (single message, 7 tool calls):
+Then **launch all 8 processes in parallel** (single message, 8 tool calls):
 
-1. **Claude review (5 agents)** — per review-claude's instructions, launch all 5 focused review agents (Correctness, Code Quality, Codebase Standards, Code Reuse, Efficiency) as separate Agent calls. Each gets the full diff and project conventions. Use `subagent_type: "general-purpose"` (do not specify a model). Pass the base branch if specified, and passthrough mode.
+1. **Claude review (6 agents)** — per review-claude's instructions, launch all 6 focused review agents (Correctness, Code Quality, Codebase Standards, Code Reuse, Security, Efficiency) as separate Agent calls. Each gets the full diff and project conventions. Use `subagent_type: "general-purpose"` (do not specify a model). Pass the base branch if specified, and passthrough mode.
 2. **Codex review (1 agent)** — per review-codex's instructions, in passthrough mode, with base branch if specified.
 3. **Remote review fetch (1 bash call)** — run:
    ```
