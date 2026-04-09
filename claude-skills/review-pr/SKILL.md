@@ -20,14 +20,16 @@ This skill orchestrates the full review pipeline: local AI reviews (Claude + Cod
 - `/review-pr <pr-url>` — specify PR explicitly
 - `/review-pr fix` — same but fix issues found
 - `/review-pr base develop` — override base branch (defaults to `main`)
+- `/review-pr mini` — faster, cheaper review: single Claude agent, Codex step 1 only, no waiting for remote reviews
 
-Modes can be combined: `/review-pr fix base develop`
+Modes can be combined: `/review-pr mini fix base develop`
 
 ## Execution
 
 **Parse arguments from:** $ARGUMENTS
 
 **Determine mode:**
+- If arguments contain "mini" → mini mode, remove it from args
 - If arguments contain "fix" → fix mode, remove it from args
 - If arguments contain "passthrough" → passthrough mode, remove it from args
 - If arguments contain "base <branch>" → base branch mode
@@ -38,7 +40,9 @@ Modes can be combined: `/review-pr fix base develop`
 
 Read `claude-skills/review-multi/SKILL.md` to understand how to launch the Claude and Codex reviews. It in turn references `claude-skills/review-claude/SKILL.md` and `claude-skills/review-codex/SKILL.md`.
 
-Then **launch all 8 processes in parallel** (single message, 8 tool calls):
+#### Full mode (default)
+
+**Launch all 8 processes in parallel** (single message, 8 tool calls):
 
 1. **Claude review (6 agents)** — per review-claude's instructions, launch all 6 focused review agents (Correctness, Code Quality, Codebase Standards, Code Reuse, Security, Efficiency) as separate Agent calls. Each gets the full diff and project conventions. Use `subagent_type: "general-purpose"` (do not specify a model). Pass the base branch if specified, and passthrough mode.
 2. **Codex review (1 agent)** — per review-codex's instructions, in passthrough mode, with base branch if specified.
@@ -48,9 +52,19 @@ Then **launch all 8 processes in parallel** (single message, 8 tool calls):
    ```
    If no PR URL was provided in arguments, just run `~/Documents/dotfiles/fetch-pr-reviews.py` with no args (it auto-detects from the current branch).
 
+#### Mini mode
+
+**Launch 3 processes in parallel** (single message, 3 tool calls):
+
+1. **Claude review (1 agent)** — launch a single Agent with `subagent_type: "general-purpose"` (do not specify a model). Gather context per review-claude Step 1 (read the diff and CLAUDE.md files), then include **all six review areas** (Correctness, Code Quality, Codebase Standards, Code Reuse, Security, Efficiency) combined into its single prompt. The agent covers all areas in one pass instead of splitting into sub-agents.
+2. **Codex review (1 agent)** — run review-codex **Step 1 only** (the general `codex review` command). Skip Step 2 (the follow-up with specific criteria).
+3. **Remote review fetch (1 bash call)** — same as full mode.
+
 ### Step 2: Evaluate remote review readiness
 
-After the fetch completes, check `bot_status` in the output. Use your judgment:
+**Skip this step in mini mode** — proceed directly to Step 3 with whatever remote reviews came back.
+
+In full mode, after the fetch completes, check `bot_status` in the output. Use your judgment:
 
 - **Copilot hasn't reviewed and PR is < 10 min old:** Copilot typically finishes in under 10 min. Wait bit longer. After 10 minutes, go with what you have.
 - **Gemini hasn't reviewed and PR is > 10 min old:** Gemini typically finishes in under 5 min. Consider a brief wait. After 10 minutes, go with what you have.

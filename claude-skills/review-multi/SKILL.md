@@ -20,14 +20,16 @@ This skill runs two code reviews in parallel — several via `/review-claude` an
 - `/review-multi` - Run reviews, then Claude discusses findings
 - `/review-multi fix` - Run reviews, then Claude fixes issues autonomously
 - `/review-multi base main` - Review changes against a base branch
+- `/review-multi mini` - Faster review: single Claude agent, Codex step 1 only
 
-Modes can be combined: `/review-multi fix base main`
+Modes can be combined: `/review-multi mini fix base main`
 
 ## Execution
 
 **Parse arguments from:** $ARGUMENTS
 
 **Determine mode:**
+- If arguments contain "mini" → mini mode, remove it from args
 - If arguments contain "fix" → fix mode, remove it from args
 - If arguments contain "passthrough" → passthrough mode, remove it from args
 - If arguments contain "base <branch>" → base branch mode
@@ -38,13 +40,21 @@ Read the skill definitions from the sibling skill directories:
 - `claude-skills/review-claude/SKILL.md`
 - `claude-skills/review-codex/SKILL.md`
 
-These define the review procedures for each reviewer. Follow their execution instructions, but with two modifications:
-1. **Run reviews run in parallel** — launch them simultaneously using two **Agent** tool calls in a single message.
+These define the review procedures for each reviewer. Follow their execution instructions, but with these modifications:
+1. **Run reviews in parallel** — launch them simultaneously using **Agent** tool calls in a single message.
 2. **Both run in pass-through mode** regardless of the mode argument — mode handling is done here, not by the individual reviews.
 
 For the Claude review, use `subagent_type: "general-purpose"` (do not specify a model). For the Codex review, use `subagent_type: "Bash"`. Pass along the base branch argument if present.
 
-Remember: Launch both the Claude and Codex reviews in parallel (two Agent calls in one message). Don't forget the Codex follow-up step (step 2 with specific criteria).
+#### Full mode (default)
+
+Launch both Claude and Codex reviews in parallel (two Agent calls in one message). Claude launches its full 6 sub-agents internally. Don't forget the Codex follow-up step (step 2 with specific criteria).
+
+#### Mini mode
+
+Launch both Claude and Codex reviews in parallel (two Agent calls in one message), but:
+- **Claude**: Tell the agent to run all 6 review areas in a single pass (no sub-agents). Include all review criteria from review-claude's agents 1–6 combined into one prompt.
+- **Codex**: Run Step 1 only (the general `codex review` command). Skip Step 2 (the follow-up with specific criteria).
 
 ### Output handling
 
