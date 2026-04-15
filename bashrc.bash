@@ -65,7 +65,8 @@ alias gitstashstaged="$HOME/Documents/dotfiles/git_stash_staged.bash"
 export PATH="$HOME/.cargo/bin:$PATH"
 
 # Set editor
-export EDITOR='vim'
+export EDITOR='nvim'
+export VISUAL='nvim'
 
 # Tmux
 alias mux="tmuxinator"

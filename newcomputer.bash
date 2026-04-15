@@ -18,9 +18,11 @@ ln -sf $SCRIPTPATH/tmuxinator-multi.yml ~/.tmuxinator/multi.yml
 ln -sf $SCRIPTPATH/tmuxinator-personal.yml ~/.tmuxinator/mux-personal.yml
 # Note on pure prompt: I had to manually install
 
-# Text editor
+# Text editors
 mkdir -p ~/Library/Application\ Support/Code/User/
 ln -sf $SCRIPTPATH/vscode-settings.json ~/Library/Application\ Support/Code/User/settings.json
+mkdir -p ~/.config
+ln -sf $SCRIPTPATH/nvim ~/.config/nvim
 
 # Other
 ln -sf $SCRIPTPATH/psqlrc ~/.psqlrc
@@ -37,7 +39,7 @@ ln -sf $SCRIPTPATH/claude-skills/review-multi ~/.claude/skills/review-multi
 
 # Software installation:
 # Manual install: pure prompt (brew failed), ohmyzsh, cargo, nvm, yarn
-brew install tmux tmuxinator reattach-to-user-namespace
+brew install tmux tmuxinator reattach-to-user-namespace neovim
 
 # TODO: Generate ssh keys for github
 # TODO: VSCode extensions
