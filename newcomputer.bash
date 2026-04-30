@@ -37,6 +37,26 @@ ln -sf $SCRIPTPATH/claude-skills/review-codex ~/.claude/skills/review-codex
 ln -sf $SCRIPTPATH/claude-skills/review-claude ~/.claude/skills/review-claude
 ln -sf $SCRIPTPATH/claude-skills/review-multi ~/.claude/skills/review-multi
 
+# launchd-invoked scripts can't live inside ~/Documents — macOS's App
+# Management sandbox blocks bash from exec'ing files there, and symlinks
+# resolve back to Documents and hit the same wall. Hard links work: TCC
+# checks the access-time path, and both paths share an inode, so edits via
+# in-place writes propagate automatically.
+#
+# Caveat: editors that save via "write temp + rename" (VSCode default, vim
+# with `set backupcopy=no`, Write tool atomic replace) break the link —
+# dotfiles gets a new inode and ~/.local/bin/ keeps the old one. Same for
+# `git checkout` replacing the file. Re-run this block after such changes.
+mkdir -p ~/.local/bin
+ln -f $SCRIPTPATH/pull-granola.py ~/.local/bin/pull-granola.py
+ln -f $SCRIPTPATH/pull-granola-launchd.sh ~/.local/bin/pull-granola-launchd.sh
+
+# launchd agents (plist itself can stay in ~/Documents — launchd only reads it)
+mkdir -p ~/Library/LaunchAgents
+ln -sf $SCRIPTPATH/com.jpaddison.pull-granola.plist ~/Library/LaunchAgents/com.jpaddison.pull-granola.plist
+launchctl bootout gui/$(id -u)/com.jpaddison.pull-granola 2>/dev/null || true
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jpaddison.pull-granola.plist
+
 # Software installation:
 # Manual install: pure prompt (brew failed), ohmyzsh, cargo, nvm, yarn
 brew install tmux tmuxinator reattach-to-user-namespace neovim

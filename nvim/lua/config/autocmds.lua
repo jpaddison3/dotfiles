@@ -1,3 +1,11 @@
+-- Disable auto-wrap-while-typing in every buffer; preserve textwidth so `gq` still rewraps.
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "*",
+  callback = function()
+    vim.opt_local.formatoptions:remove("t")
+  end,
+})
+
 -- Switch theme to match macOS appearance when nvim regains focus.
 vim.api.nvim_create_autocmd("FocusGained", {
   callback = function()

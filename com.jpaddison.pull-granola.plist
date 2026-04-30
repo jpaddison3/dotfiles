@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jpaddison.pull-granola</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/jpaddison/.local/bin/pull-granola-launchd.sh</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <!-- Every 15 minutes from 15:00 through 19:00 local time. -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Hour</key><integer>15</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>15</integer><key>Minute</key><integer>15</integer></dict>
+        <dict><key>Hour</key><integer>15</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Hour</key><integer>15</integer><key>Minute</key><integer>45</integer></dict>
+        <dict><key>Hour</key><integer>16</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>16</integer><key>Minute</key><integer>15</integer></dict>
+        <dict><key>Hour</key><integer>16</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Hour</key><integer>16</integer><key>Minute</key><integer>45</integer></dict>
+        <dict><key>Hour</key><integer>17</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>17</integer><key>Minute</key><integer>15</integer></dict>
+        <dict><key>Hour</key><integer>17</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Hour</key><integer>17</integer><key>Minute</key><integer>45</integer></dict>
+        <dict><key>Hour</key><integer>18</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>18</integer><key>Minute</key><integer>15</integer></dict>
+        <dict><key>Hour</key><integer>18</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Hour</key><integer>18</integer><key>Minute</key><integer>45</integer></dict>
+        <dict><key>Hour</key><integer>19</integer><key>Minute</key><integer>0</integer></dict>
+    </array>
+
+    <!-- Logs are written by the wrapper to ~/.local/share/pull-granola/pull-granola.log;
+         these catch anything the wrapper itself fails to capture (e.g. if it exits early). -->
+    <key>StandardOutPath</key>
+    <string>/Users/jpaddison/.local/share/pull-granola/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/jpaddison/.local/share/pull-granola/launchd.err.log</string>
+</dict>
+</plist>
