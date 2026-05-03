@@ -27,4 +27,10 @@ export PATH="/opt/homebrew/bin:$PATH"
 # days until JP notices via missing transcripts.
 granola auth login >/dev/null 2>&1 || echo "WARN: granola auth login failed at $(date -u +%FT%TZ)"
 
-exec "$HOME/.local/bin/pull-granola.py"
+# Sweep the last 3 days, not just today, so missed fires (Mac asleep, agent
+# bootout'd by a reboot, auth glitch, etc.) get backfilled on the next tick.
+# Skip-if-exists makes redundant sweeps cheap — one `meeting list` API call
+# per day if all transcripts are already on disk.
+for i in 0 1 2; do
+    "$HOME/.local/bin/pull-granola.py" "$(date -v -${i}d +%F)" || true
+done

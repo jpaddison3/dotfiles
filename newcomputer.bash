@@ -51,9 +51,12 @@ mkdir -p ~/.local/bin
 ln -f $SCRIPTPATH/pull-granola.py ~/.local/bin/pull-granola.py
 ln -f $SCRIPTPATH/pull-granola-launchd.sh ~/.local/bin/pull-granola-launchd.sh
 
-# launchd agents (plist itself can stay in ~/Documents — launchd only reads it)
+# launchd agent. The plist must be a real file (or hard link) in
+# ~/Library/LaunchAgents — macOS Background Tasks Management doesn't follow
+# symlinks, so a symlinked plist is invisible to BTM, never appears in
+# System Settings → Login Items, and gets silently lost on reboot.
 mkdir -p ~/Library/LaunchAgents
-ln -sf $SCRIPTPATH/com.jpaddison.pull-granola.plist ~/Library/LaunchAgents/com.jpaddison.pull-granola.plist
+ln -f $SCRIPTPATH/com.jpaddison.pull-granola.plist ~/Library/LaunchAgents/com.jpaddison.pull-granola.plist
 launchctl bootout gui/$(id -u)/com.jpaddison.pull-granola 2>/dev/null || true
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jpaddison.pull-granola.plist
 

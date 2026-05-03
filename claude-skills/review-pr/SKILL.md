@@ -12,21 +12,27 @@ allowed-tools:
 
 # Review PR (Local + Remote)
 
-This skill orchestrates the full review pipeline: local AI reviews (Claude + Codex) and remote GitHub PR reviews (Gemini, Copilot, humans) — all fetched in parallel, then synthesized.
+This skill orchestrates the full review pipeline: local AI reviews (Claude +
+Codex) and remote GitHub PR reviews (Gemini, Copilot, humans) — all fetched in
+parallel, then synthesized.
 
 ## Usage
 
-- `/review-pr` — auto-detect PR from current branch, full local + remote review
-- `/review-pr <pr-url>` — specify PR explicitly
-- `/review-pr fix` — same but fix issues found
-- `/review-pr base develop` — override base branch (defaults to `main`)
-- `/review-pr mini` — faster, cheaper review: single Claude agent, Codex step 1 only, no waiting for remote reviews
+- `/review-pr` or `$review-pr` — auto-detect PR from current branch, full local
+  + remote review
+- `/review-pr <pr-url>` or `$review-pr <pr-url>` — specify PR explicitly
+- `/review-pr fix` or `$review-pr fix` — same but fix issues found
+- `/review-pr base develop` or `$review-pr base develop` — override base
+  branch
+- `/review-pr mini` or `$review-pr mini` — faster local reviews and no waiting
+  for remote reviewers
 
-Modes can be combined: `/review-pr mini fix base develop`
+Modes can be combined: `/review-pr mini fix base develop`.
 
 ## Execution
 
-**Parse arguments from:** $ARGUMENTS
+**Parse arguments from:** `$ARGUMENTS` in Claude, or the user's prompt after
+`$review-pr` in Codex.
 
 **Determine mode:**
 - If arguments contain "mini" → mini mode, remove it from args
@@ -38,15 +44,18 @@ Modes can be combined: `/review-pr mini fix base develop`
 
 ### Step 1: Gather review procedures and launch everything in parallel
 
-Read `claude-skills/review-multi/SKILL.md` to understand how to launch the Claude and Codex reviews. It in turn references `claude-skills/review-claude/SKILL.md` and `claude-skills/review-codex/SKILL.md`.
+Read `../review-multi/SKILL.md` to understand how to launch the Claude and
+Codex reviews. It in turn references `../review-claude/SKILL.md` and
+`../review-codex/SKILL.md`.
 
 #### Full mode (default)
 
-**Launch all 8 processes in parallel** (single message, 8 tool calls):
+Launch the local review pipeline and remote review fetch in parallel when tool
+support allows:
 
-1. **Claude review (6 agents)** — per review-claude's instructions, launch all 6 focused review agents (Correctness, Code Quality, Codebase Standards, Code Reuse, Security, Efficiency) as separate Agent calls. Each gets the full diff and project conventions. Use `subagent_type: "general-purpose"` (do not specify a model). Pass the base branch if specified, and passthrough mode.
-2. **Codex review (1 agent)** — per review-codex's instructions, in passthrough mode, with base branch if specified.
-3. **Remote review fetch (1 bash call)** — run:
+1. **Local reviews** — follow `review-multi` in pass-through mode. Pass the
+   base branch if specified.
+2. **Remote review fetch** — run:
    ```
    ~/Documents/dotfiles/fetch-pr-reviews.py <pr-url-or-auto>
    ```
@@ -54,11 +63,12 @@ Read `claude-skills/review-multi/SKILL.md` to understand how to launch the Claud
 
 #### Mini mode
 
-**Launch 3 processes in parallel** (single message, 3 tool calls):
+Launch the local review pipeline in mini pass-through mode and remote review
+fetch in parallel when tool support allows:
 
-1. **Claude review (1 agent)** — launch a single Agent with `subagent_type: "general-purpose"` (do not specify a model). Gather context per review-claude Step 1 (read the diff and CLAUDE.md files), then include **all six review areas** (Correctness, Code Quality, Codebase Standards, Code Reuse, Security, Efficiency) combined into its single prompt. The agent covers all areas in one pass instead of splitting into sub-agents.
-2. **Codex review (1 agent)** — run review-codex **Step 1 only** (the general `codex review` command). Skip Step 2 (the follow-up with specific criteria).
-3. **Remote review fetch (1 bash call)** — same as full mode.
+1. **Local reviews** — follow `review-multi mini` in pass-through mode. Pass the
+   base branch if specified.
+2. **Remote review fetch** — same as full mode.
 
 ### Step 2: Evaluate remote review readiness
 

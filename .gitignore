@@ -7,3 +7,4 @@ CLAUDE.md
 notes/
 .bashrc.local
 .claude/scheduled_tasks.lock
+.playwright-mcp/

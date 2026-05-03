@@ -1,6 +1,6 @@
 ---
 name: review-claude
-description: Run a full code review for correctness and quality using six focused parallel subagents
+description: Run a Claude code review. In Claude, use focused subagents; in Codex, invoke Claude Code from the command line.
 allowed-tools:
   - Agent
   - Task
@@ -13,28 +13,42 @@ allowed-tools:
 
 # Review with Claude
 
-This skill launches six focused review subagents in parallel — each with a narrow mandate — then aggregates their findings. Inspired by the `/simplify` pattern of specialized parallel agents.
+Run a Claude review. The implementation depends on which agent is executing
+this skill:
+
+- **Claude runtime:** launch focused review subagents in parallel.
+- **Codex runtime:** invoke the Claude CLI non-interactively.
 
 ## Usage
 
-- `/review-claude` - Run review and display output (pass-through mode)
-- `/review-claude collaborative` - Run review, then Claude discusses findings
-- `/review-claude fix` - Run review, then Claude fixes issues autonomously
-- `/review-claude base main` - Review changes against a base branch
+- `/review-claude` or `$review-claude` - run review and display output
+  (pass-through mode)
+- `/review-claude collaborative` or `$review-claude collaborative` - run
+  review, then discuss findings
+- `/review-claude fix` or `$review-claude fix` - run review, then fix issues
+  autonomously
+- `/review-claude base main` or `$review-claude base main` - review changes
+  against a base branch
+- `/review-claude mini` or `$review-claude mini` - run a single-pass Claude
+  review
 
-Modes can be combined: `/review-claude fix base main`
+Modes can be combined: `/review-claude mini fix base main`.
 
 ## Execution
 
-**Parse arguments from:** $ARGUMENTS
+**Parse arguments from:** `$ARGUMENTS` in Claude, or the user's prompt after
+`$review-claude` in Codex.
 
 **Determine mode:**
+
+- If arguments contain "mini" → mini mode, remove it from args
 - If arguments contain "fix" → fix mode, remove it from args
 - If arguments contain "collaborative" → collaborative mode, remove it from args
 - If arguments contain "base <branch>" → base branch mode
 - Default → pass-through mode
 
 **Determine the diff command:**
+
 - Default: `git diff HEAD` (uncommitted changes)
 - With base branch: `git diff <branch>...HEAD`
 
@@ -46,7 +60,14 @@ Also read the project's `CLAUDE.md` files — check the project root and `~/.cla
 
 ### Step 2: Launch six review agents in parallel
 
-Use the **Agent** tool to launch **all six agents concurrently** in a single message. This ensures targeted reviews and the parallelism maintains speed. Pass each agent the full diff and relevant project conventions so it has complete context. Each agent should also explore the surrounding codebase as needed to understand context for the changes.
+When running from Claude: Use the **Agent** tool to launch **all six agents concurrently** in a single message. This ensures targeted reviews and the parallelism maintains speed.
+
+When running from Codex: shell out to Claude with six parallel `claude -p`
+commands, one for each review area below. Pass the full review instructions for
+each mode. In mini mode, run one `claude -p` command covering all six areas
+instead of six separate commands.
+
+Pass each agent the full diff and relevant project conventions so it has complete context. Each agent should also explore the surrounding codebase as needed to understand context for the changes.
 
 Each agent must **not make any changes** — review only. Issues may be ignored inside test files. When in doubt about whether something is an issue, the agent should mention it.
 

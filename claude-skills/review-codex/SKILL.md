@@ -1,6 +1,6 @@
 ---
 name: review-codex
-description: Run a code review using OpenAI Codex CLI (GPT-5.2)
+description: Run a code review with Codex. In Codex, use native review behavior; in Claude, invoke the Codex CLI.
 allowed-tools:
   - Bash
   - Read
@@ -11,30 +11,48 @@ allowed-tools:
 
 # Review with Codex
 
-This skill runs a two-step code review using the Codex CLI (GPT-5.2):
-1. General review of changes
-2. Follow-up with specific review criteria
+Run a Codex review. The implementation depends on which agent is executing this
+skill:
+
+- **Codex runtime:** use Codex's native review behavior. Use a review-only
+  Codex subagent when the current runtime allows one.
+- **Claude runtime:** invoke the Codex CLI review harness from the shell.
 
 ## Usage
 
-- `/review-codex` - Run review and display output (pass-through mode)
-- `/review-codex collaborative` - Run review, then Claude discusses findings
-- `/review-codex fix` - Run review, then Claude fixes issues autonomously
-- `/review-codex base main` - Review changes against a base branch
+- `/review-codex` or `$review-codex` - run review and display output
+  (pass-through mode)
+- `/review-codex collaborative` or `$review-codex collaborative` - run review,
+  then discuss findings
+- `/review-codex fix` or `$review-codex fix` - run review, then fix issues
+  autonomously
+- `/review-codex base main` or `$review-codex base main` - review changes
+  against a base branch
+- `/review-codex mini` or `$review-codex mini` - run the basic review without
+  the extra standards checklist
 
-Modes can be combined: `/review-codex fix base main`
+Modes can be combined: `/review-codex mini fix base main`.
 
 ## Execution
 
-**Parse arguments from:** $ARGUMENTS
+**Parse arguments from:** `$ARGUMENTS` in Claude, or the user's prompt after
+`$review-codex` in Codex.
 
 **Determine mode:**
+
+- If arguments contain "mini" → mini mode, remove it from args
 - If arguments contain "fix" → fix mode, remove it from args
 - If arguments contain "collaborative" → collaborative mode, remove it from args
-- If arguments contain "base <branch>" → use `--base <branch>` instead of `--uncommitted`
-- Default → pass-through mode with `--uncommitted`
+- If arguments contain "base <branch>" → review against that base branch
+- Default → pass-through mode
 
-### Codex binary: bypass the Superconductor shim
+### Codex runtime
+
+Spawn two subagents in parallel:
+
+For the first, please ask for a general review, and then the "follow-up" can be run in parallel.
+
+### Claude runtime
 
 Do **not** invoke bare `codex`. Superconductor installs a wrapper at `~/.superconductor/bin/codex` (first on PATH) that injects its own MCP server via `-c` config overrides. That MCP handshake can hang `codex review` indefinitely when run non-interactively from inside a Superconductor-managed Claude session. Call the real binary directly:
 
@@ -44,7 +62,7 @@ CODEX_BIN="$(which -a codex | grep -v '/.superconductor/' | head -n1)"
 
 Bash state does not persist between your tool calls, so either re-resolve `$CODEX_BIN` each call or substitute the absolute path (e.g. `~/.nvm/versions/node/v22.16.0/bin/codex`) into subsequent commands.
 
-### Step 1: General Review
+#### Step 1: General review
 
 Run the initial review:
 
@@ -52,7 +70,9 @@ Run the initial review:
 "$CODEX_BIN" review [--uncommitted OR --base <branch>]
 ```
 
-### Step 2: Follow-up with Specific Criteria
+#### Step 2: Follow-up with specific criteria
+
+Skip this step in mini mode.
 
 Resume the session with custom review instructions:
 
@@ -74,9 +94,9 @@ You may ignore these issues inside test files. When in doubt, tell me about some
 
 ### Output handling
 
-- **Pass-through mode:** Display both Codex outputs directly. Do not add commentary, analysis, or suggestions. Just show what Codex said.
+- **Pass-through mode:** Display the Codex output directly. Do not add commentary, analysis, or suggestions. Just show what Codex said.
 
-- **Collaborative mode:** After showing both Codex outputs, provide your own analysis. Note agreements, disagreements, or additional concerns Codex may have missed. Offer to help address any issues found.
+- **Collaborative mode:** After showing the Codex output, provide your own analysis. Note agreements, disagreements, or additional concerns Codex may have missed. Offer to help address any issues found.
 
 - **Fix mode:** After reviewing the Codex output, make executive decisions and fix issues autonomously. Use your own judgment on what's worth fixing.
 

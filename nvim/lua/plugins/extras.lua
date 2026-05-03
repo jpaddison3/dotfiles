@@ -12,4 +12,20 @@ return {
     branch = "master",
     event = "VeryLazy", -- Load lazily for fast startup
   },
+
+  -- Remap mini.surround to vim-surround-style keys (ds, cs, ys).
+  {
+    "echasnovski/mini.surround",
+    opts = {
+      mappings = {
+        add = "ys",            -- ysiw)  -> surround inner word with ()
+        delete = "ds",         -- ds)    -> delete surrounding ()
+        replace = "cs",        -- cs)]   -> change ( to [
+        find = "",
+        find_left = "",
+        highlight = "",
+        update_n_lines = "",
+      },
+    },
+  },
 }
