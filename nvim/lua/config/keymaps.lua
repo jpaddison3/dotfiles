@@ -13,6 +13,7 @@ map("n", "<leader>fg", function()
   vim.notify("Copied: " .. path)
 end, { desc = "Copy relative path" })
 map("n", "<leader>fo", function() Snacks.picker.recent() end, { desc = "Recent files" })
+map("n", "<leader>fa", function() Snacks.picker.files({ hidden = true, ignored = true }) end, { desc = "Find files (incl. hidden/ignored)" })
 map("n", "<leader>fr", function()
   vim.ui.input({ prompt = "New name: ", default = vim.fn.expand("%:t") }, function(name)
     if not name or name == "" then return end
