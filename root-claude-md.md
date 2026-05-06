@@ -19,14 +19,6 @@
   - `git mv old-path new-path`
   - `git commit --no-verify -m "move file from old-path to new-path"` (if you have pre-commit hooks that would naturally complain about the broken imports, skip them) (this is the only time I want you to use --no-verify)
   - Then in a separate commit, make any changes needed to the file contents or imports.
-- Never use `git -C`.
-- Prefer git commit -m "message" without EOF markers or cat, etc, unless otherwise requested
-
-### PR creation protocol
-
-- Create a file in `notes/pr-<branch-name>.md` with the PR title and description
-- After my review, use the gh CLI to create the PR using the (potentially updated) notes file as the body
-  - (Assuming we're in a github-hosted repo, otherwise I'll create the PR manually)
 
 ## Chrome MCP
 
