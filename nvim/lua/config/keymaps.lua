@@ -7,11 +7,13 @@ local map = vim.keymap.set
 -- == File (<leader>f) ==
 map("n", "<leader>fs", "<cmd>w<cr>", { desc = "Save file" })
 map("n", "<leader>fn", "<cmd>enew<cr>", { desc = "New file" })
-map("n", "<leader>fg", function()
+local function copy_relative_path()
   local path = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":~:.")
   vim.fn.setreg("+", path)
   vim.notify("Copied: " .. path)
-end, { desc = "Copy relative path" })
+end
+map("n", "<leader>fg", copy_relative_path, { desc = "Copy relative path" })
+map("n", "<leader>fy", copy_relative_path, { desc = "Copy relative path (yank)" })
 map("n", "<leader>fo", function() Snacks.picker.recent() end, { desc = "Recent files" })
 map("n", "<leader>fa", function() Snacks.picker.files({ hidden = true, ignored = true }) end, { desc = "Find files (incl. hidden/ignored)" })
 map("n", "<leader>fr", function()

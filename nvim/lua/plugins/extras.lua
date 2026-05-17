@@ -13,6 +13,14 @@ return {
     event = "VeryLazy", -- Load lazily for fast startup
   },
 
+  -- Free up <leader>fg so our "Copy relative path" keymap in config/keymaps.lua wins.
+  {
+    "folke/snacks.nvim",
+    keys = {
+      { "<leader>fg", false },
+    },
+  },
+
   -- Remap mini.surround to vim-surround-style keys (ds, cs, ys).
   {
     "nvim-mini/mini.surround",
