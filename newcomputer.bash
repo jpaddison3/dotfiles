@@ -36,6 +36,16 @@ ln -f $SCRIPTPATH/root-claude-md.md ~/.claude/CLAUDE.md
 ln -sf $SCRIPTPATH/claude-skills/review-codex ~/.claude/skills/review-codex
 ln -sf $SCRIPTPATH/claude-skills/review-claude ~/.claude/skills/review-claude
 ln -sf $SCRIPTPATH/claude-skills/review-multi ~/.claude/skills/review-multi
+ln -sf $SCRIPTPATH/claude-skills/rpr ~/.claude/skills/rpr
+
+# Codex skills
+mkdir -p ~/.codex/skills
+ln -sf $SCRIPTPATH/claude-skills/ci ~/.codex/skills/ci
+ln -sf $SCRIPTPATH/claude-skills/cpr ~/.codex/skills/cpr
+ln -sf $SCRIPTPATH/claude-skills/review-codex ~/.codex/skills/review-codex
+ln -sf $SCRIPTPATH/claude-skills/review-claude ~/.codex/skills/review-claude
+ln -sf $SCRIPTPATH/claude-skills/review-multi ~/.codex/skills/review-multi
+ln -sf $SCRIPTPATH/claude-skills/rpr ~/.codex/skills/rpr
 
 # launchd-invoked scripts can't live inside ~/Documents — macOS's App
 # Management sandbox blocks bash from exec'ing files there, and symlinks

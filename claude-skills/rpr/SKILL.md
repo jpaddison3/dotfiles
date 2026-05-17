@@ -1,5 +1,5 @@
 ---
-name: review-pr
+name: rpr
 description: Run parallel local + remote PR reviews, then synthesize all findings
 allowed-tools:
   - Task
@@ -18,21 +18,21 @@ parallel, then synthesized.
 
 ## Usage
 
-- `/review-pr` or `$review-pr` — auto-detect PR from current branch, full local
+- `/rpr` or `$rpr` — auto-detect PR from current branch, full local
   + remote review
-- `/review-pr <pr-url>` or `$review-pr <pr-url>` — specify PR explicitly
-- `/review-pr fix` or `$review-pr fix` — same but fix issues found
-- `/review-pr base develop` or `$review-pr base develop` — override base
+- `/rpr <pr-url>` or `$rpr <pr-url>` — specify PR explicitly
+- `/rpr fix` or `$rpr fix` — same but fix issues found
+- `/rpr base develop` or `$rpr base develop` — override base
   branch
-- `/review-pr mini` or `$review-pr mini` — faster local reviews and no waiting
+- `/rpr mini` or `$rpr mini` — faster local reviews and no waiting
   for remote reviewers
 
-Modes can be combined: `/review-pr mini fix base develop`.
+Modes can be combined: `/rpr mini fix base develop`.
 
 ## Execution
 
 **Parse arguments from:** `$ARGUMENTS` in Claude, or the user's prompt after
-`$review-pr` in Codex.
+`$rpr` in Codex.
 
 **Determine mode:**
 - If arguments contain "mini" → mini mode, remove it from args
