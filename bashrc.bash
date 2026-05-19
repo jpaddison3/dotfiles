@@ -68,6 +68,10 @@ export PATH="$HOME/.cargo/bin:$PATH"
 export EDITOR='nvim'
 export VISUAL='nvim'
 
+# Claude Code: settings.json caps `effortLevel` at `xhigh` (silently downgrades `max`).
+# This env var is the only known way to make `max` the persistent default.
+export CLAUDE_CODE_EFFORT_LEVEL=max
+
 # Tmux
 alias mux="tmuxinator"
 alias mux-dev='tmuxinator start multi'
