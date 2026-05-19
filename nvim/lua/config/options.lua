@@ -20,6 +20,19 @@ vim.opt.clipboard = "unnamedplus"
 -- Rewrap width for gq / <leader>cw
 vim.opt.textwidth = 100
 
+-- Don't auto-insert newlines in normal text; use gq / <leader>cw for deliberate rewraps.
+vim.opt.formatoptions:remove({ "t", "a" })
+vim.api.nvim_create_autocmd("FileType", {
+  group = vim.api.nvim_create_augroup("jp_no_auto_hard_wrap", { clear = true }),
+  pattern = "*",
+  callback = function()
+    vim.opt_local.formatoptions:remove({ "t", "a" })
+  end,
+})
+
+-- Visually wrap long lines by default.
+vim.opt.wrap = true
+
 -- Highlight the cursor line
 vim.opt.cursorline = true
 
