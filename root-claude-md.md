@@ -8,6 +8,10 @@
 
 - If you write a test, run the tests locally before returning back to me.
 
+## npm
+
+- For security reasons, prefer `npm ci` over `npm install` for cases where the latter isn't needed.
+
 ## Git
 
 - Wait on my go ahead before committing or staging anything
