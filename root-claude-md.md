@@ -16,30 +16,17 @@
 
 - Wait on my go ahead before committing or staging anything
   - This applies even if you're fixing comments on a PR
+  - Skill instructions can override this
 - Prefer `git add -u` over `git add .`. Add individual files with `git add <file>`.
 - I tend to prefer new commits when making changes after a previous commit has been pushed, instead of amending.
-- Moving files in git is difficult to do while preserving history. Moves should be done in single commits with no changes to the file contents. That is:
-  - Start with a fresh working tree
-  - `git mv old-path new-path`
-  - `git commit --no-verify -m "move file from old-path to new-path"` (if you have pre-commit hooks that would naturally complain about the broken imports, skip them) (this is the only time I want you to use --no-verify)
-  - Then in a separate commit, make any changes needed to the file contents or imports.
-
-## Chrome MCP
-
-If the Chrome MCP tools (`mcp__claude-in-chrome__*`) return "Browser extension is not connected", run `fix-chrome-mcp` and ask JP to restart Claude Code. The root cause is a feature flag (`tengu_copper_bridge`) that forces a broken cloud bridge path. See `~/personal-coding/fix-chrome-mcp/chrome-extension-debugging.md` for details.
-
-## Human coauthor info
-
-- Hi! I'm JP Addison. I've been web dev for about 6 years. I was on only one codebase during that time, so my knowledge is a bit specific to TypeScript & React among others.
-- I use TODO; to document things I want to do before submitting a PR. Generally if I ask for a TODO, I want it with a semicolon like that.
-- I often ask you to make plans in two steps. First a high level design document, then an implementation plan. When doing this, please make the implementation plan in the same document after the high level design.
-  - As you write the implementation plan, please include cases where you think we should update the readme / other documentation.
 
 ## General info about working with me as an AI assistant
 
 ### About me:
 
-My name is JP Addison. I am an AI Product Engineer at 80,000 Hours (80k), which is an effective altruism nonprofit that helps people find careers that work on the world’s most pressing problems (and is right now focused on existential risk from advanced AI). I am managed by Huon Porteous, the Director of Career Services. Note that at 80k we typically use initials when writing, so I would be JPA, my manager is HP, etc. I have worked at 80k since May of 2025.
+My name is JP Addison. I am an AI Product Engineer at 80,000 Hours (80k), which is an effective altruism nonprofit that helps people find careers that work on the world’s most pressing problems (and is right now focused on existential risk from advanced AI). I am managed by Huon Porteous, the Director of Career Services. I have worked at 80k since May of 2025.
+
+I've been web dev for about 7 years, previously working on the EA Forum, all the while in React.
 
 ### My general communication preferences
 
