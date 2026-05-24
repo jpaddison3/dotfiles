@@ -31,6 +31,31 @@ observations in `.triage-scratch/BLOCKED.md`.
 
 ---
 
+## Git authorization
+
+JP has **pre-authorized** every git operation in this workflow:
+
+- `git add` / `git add -u` (staging)
+- `git commit`
+- `git push -u origin <your-bug-branch>` (your bug branch only — never push to `main`)
+- `gh pr create`
+
+The CLAUDE.md rule *"Wait on my go ahead before committing or staging anything"* applies to **interactive** Claude Code sessions where JP is reviewing each step. This is an **autonomous triage workflow** whose entire purpose is to land a PR — the stage / commit / push / open-PR sequence is the deliverable. Do not pause to ask permission for any of those steps; proceed as the prompt directs.
+
+If something *else* feels risky and unauthorized (force-push, touching `main`, deleting branches, mutating shared state), that's still off-limits unless this prompt explicitly tells you to do it.
+
+---
+
+## Don't use the `Monitor` tool
+
+As a background subagent, calling `Monitor` ends your process: your text response after the Monitor call becomes the agent's terminal message to the parent, and Monitor's wake-up events have no agent left to receive them. This silently kills the run mid-pipeline.
+
+The codex invocations in this prompt (`"$CODEX_BIN" exec ...`) are foreground/synchronous — the Bash call returns when codex finishes — so you should not need Monitor at all. If a codex run appears to finish without producing `.out` content, check the corresponding `.stderr` file for errors and re-run the codex bash directly. Do **not** background codex and poll via Monitor.
+
+If you genuinely need to wait on a background process (e.g. a one-off long-running command you `&`-backgrounded), use an inline shell loop in `Bash` (`until <condition>; do sleep 5; done`) — never `Monitor`.
+
+---
+
 ## Inputs from the parent
 
 These placeholders are substituted at dispatch time:
@@ -160,7 +185,8 @@ Handle:
 
 - **`APPROVE`** → proceed to implementation.
 - **`REVISE`** → read DETAILS, re-write `.triage-scratch/PLAN.md` addressing the
-  feedback, re-run plan-review **once**. If second pass is still
+  feedback, re-run plan-review. You may re-run plan-review up to **three** times
+  (so up to 4 total passes including the initial one). If the 4th pass is still
   `REVISE`, treat as `ESCALATE`.
 - **`ESCALATE`** → write `.triage-scratch/BLOCKED.md` with the reviewer's DETAILS
   verbatim (do not paraphrase — JP reads this directly). Update
@@ -256,15 +282,30 @@ For each finding:
 - `[hard call]` → don't apply; include in PR body under "Decisions
   for reviewer".
 
-## Step 10: Push and open PR
+## Step 10: Commit, push, open PR
 
 **The PR base is `main`.** Your worktree was branched from `main` directly, so the PR diff already contains only your bug fix — no rebase needed.
 
-Don't use `/cpr` (it defaults base to main, but it also handles a commit step you've already done):
+You are **pre-authorized** for every command in this step (see the *Git authorization* section above). Don't pause to ask.
 
 ```bash
-# Branch name follows the bug/<slug>-<gid> convention
+# Run formatter first — the pre-commit hook checks format, doesn't auto-fix
+npm run format:write
+git add -u
+
+# Commit. Single new commit, not amend.
+git commit -m "$(cat <<'MSG'
+<short descriptive title — do not include the bug GID>
+
+Fixes Asana task {{ASANA_TASK_URL}}
+
+Co-authored-by: Claude <noreply@anthropic.com>
+MSG
+)"
+
+# Push your bug branch (never main). Branch name follows bug/<slug>-<gid>.
 git push -u origin "$(git symbolic-ref --short HEAD)"
+
 gh pr create --base main \
   --title "<short descriptive title — do not include the bug GID>" \
   --body "$(cat <<'PRBODY'
@@ -272,6 +313,8 @@ gh pr create --base main \
 PRBODY
 )"
 ```
+
+If the pre-commit hook fails: the commit did NOT happen. Fix the underlying issue, re-stage, and create a NEW commit. Never `--amend` and never `--no-verify`.
 
 Body template (append after any default body content):
 
