@@ -40,7 +40,7 @@ The cwd is the worktree root. Read these files from `.triage-scratch/`:
 - `.triage-scratch/WHAT_I_SAW_*.md` — the plan author's interpretation of each screenshot
 - `.triage-scratch/PLAN.md`         — the plan you are reviewing
 
-If any of these aren't at the expected `.triage-scratch/` path, halt — that's a real anomaly. Don't search elsewhere or create symlinks; the per-bug-subagent is responsible for placing them and a missing file means something upstream went wrong.
+`bug-spec.json` and `PLAN.md` must be present — if either is missing from `.triage-scratch/`, halt; that's a real anomaly. `WHAT_I_SAW_*.md` files are expected **only when `bug-spec.json` lists attachments**: if its `attachments` array is empty there will legitimately be none, which is NOT an anomaly — proceed normally. Halt for missing WHAT_I_SAW only when attachments exist but the matching files are absent. Don't search elsewhere or create symlinks; the per-bug-subagent is responsible for placing these files and a genuinely missing file means something upstream went wrong.
 
 You MUST grep the codebase to spot-check the plan's claims. At minimum:
 - Verify the files PLAN.md proposes to edit actually exist and contain the

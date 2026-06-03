@@ -77,7 +77,7 @@ Read these from the cwd:
 - `./CLAUDE.md` — project conventions
 - `~/.claude/CLAUDE.md` — global user conventions
 
-Note: per the per-bug-subagent prompt's "working directory convention," all process artifacts live under `.triage-scratch/` (not at the worktree root). If a file is absent from `.triage-scratch/` that you'd expect there, halt — that's a different kind of weird than missing-file-at-cwd-root.
+Note: per the per-bug-subagent prompt's "working directory convention," all process artifacts live under `.triage-scratch/` (not at the worktree root). If a file is absent from `.triage-scratch/` that you'd expect there, halt — that's a different kind of weird than missing-file-at-cwd-root. **Exception:** `WHAT_I_SAW_*.md` files exist only when `bug-spec.json` lists attachments; if its `attachments` array is empty there will legitimately be none — that is expected, not an anomaly, so do not halt for it.
 
 Pass each subagent the full diff plus the context relevant to its
 criterion. Each subagent must NOT make any changes — review only. When
