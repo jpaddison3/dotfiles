@@ -169,7 +169,7 @@ Update `.triage-scratch/STATUS.json` with `phase: "plan-review"`.
 ```bash
 CODEX_BIN="$(which -a codex | grep -v '/.superconductor/' | head -n1)"
 mkdir -p .triage-scratch
-"$CODEX_BIN" exec "$(cat ~/Documents/dotfiles/claude-skills/minerva-asana-triage/prompts/plan-review.md)" 2> .triage-scratch/plan-review.stderr | tee .triage-scratch/plan-review.out
+"$CODEX_BIN" exec "$(cat ~/Documents/dotfiles/claude-skills/minerva-asana-triage/prompts/plan-review.md)" < /dev/null 2> .triage-scratch/plan-review.stderr | tee .triage-scratch/plan-review.out
 ```
 
 Parse the trailing block of `.triage-scratch/plan-review.out`:
@@ -255,7 +255,7 @@ Stage your changes for review (don't commit yet):
 ```bash
 git add -u
 mkdir -p .triage-scratch
-"$CODEX_BIN" exec "$(cat ~/Documents/dotfiles/claude-skills/minerva-asana-triage/prompts/diff-review.md)" 2> .triage-scratch/diff-review.stderr | tee .triage-scratch/diff-review.out
+"$CODEX_BIN" exec "$(cat ~/Documents/dotfiles/claude-skills/minerva-asana-triage/prompts/diff-review.md)" < /dev/null 2> .triage-scratch/diff-review.stderr | tee .triage-scratch/diff-review.out
 ```
 
 Parse the trailing block:
