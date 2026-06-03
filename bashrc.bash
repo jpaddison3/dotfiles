@@ -69,8 +69,8 @@ export EDITOR='nvim'
 export VISUAL='nvim'
 
 # Claude Code: settings.json caps `effortLevel` at `xhigh` (silently downgrades `max`).
-# This env var is the only known way to make `max` the persistent default.
-export CLAUDE_CODE_EFFORT_LEVEL=max
+# Forcing `max` here overrode per-session ultracode, so it's disabled to let ultracode take over.
+# export CLAUDE_CODE_EFFORT_LEVEL=max
 
 # Tmux
 alias mux="tmuxinator"
