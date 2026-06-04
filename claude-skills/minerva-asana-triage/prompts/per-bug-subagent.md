@@ -50,7 +50,7 @@ If something *else* feels risky and unauthorized (force-push, touching `main`, d
 
 As a background subagent, calling `Monitor` ends your process: your text response after the Monitor call becomes the agent's terminal message to the parent, and Monitor's wake-up events have no agent left to receive them. This silently kills the run mid-pipeline.
 
-The codex invocations in this prompt (`"$CODEX_BIN" exec ...`) are foreground/synchronous — the Bash call returns when codex finishes — so you should not need Monitor at all. If a codex run appears to finish without producing `.out` content, check the corresponding `.stderr` file for errors and re-run the codex bash directly. Do **not** background codex and poll via Monitor.
+The codex invocations in this prompt (`"$CODEX_BIN" exec ...`) are foreground/synchronous — the Bash call returns when codex finishes — so you should not need Monitor at all. If a codex run appears to finish without producing `.out` content, check the corresponding `.stderr` file for errors and re-run the codex bash directly — but **within the per-step retry limits**, never on a loop. (Empty output under load is a known wedge; Step 9's empty-output rule caps review re-runs at one and turns repeated empties into a BLOCKED, rather than an unbounded retry.) Do **not** background codex and poll via Monitor.
 
 If you genuinely need to wait on a background process (e.g. a one-off long-running command you `&`-backgrounded), use an inline shell loop in `Bash` (`until <condition>; do sleep 5; done`) — never `Monitor`.
 
@@ -80,7 +80,7 @@ You are fixing one bug. Your worktree is pre-created and set up
 6. Implement
 7. Static checks + relevant tests
 8. Visual verification (UI bugs)
-9. Run Codex diff-review — handle findings labelled `fix` / `ignore` / `hard call`
+9. Run Codex diff-review — debate the findings with Codex, apply the agreed fixes; converge or halt (never spin)
 10. Rebase onto main, push, open PR + post Asana comment
 11. Write final `.triage-scratch/STATUS.json`
 
@@ -94,6 +94,25 @@ transition so the watcher script can see progress.
 `.triage-scratch/` is gitignored, so its contents are never committed. The directory may already exist if you're resuming a previously-blocked bug; just `mkdir -p .triage-scratch` defensively.
 
 The only files that should appear in `git status` are the bug-fix changes themselves (in `src/`, `prisma/`, etc.).
+
+---
+
+## Reviewer flags — collect as you go
+
+Three kinds of human-facing flag reach the reviewer through the **PR
+body** (assembled in Step 10) — there is **no** separate GitHub review.
+Two are produced for you later by diff-review (Step 9): **Decisions**
+(contested findings) and **Risks** (awareness items). The third you
+must **collect yourself, throughout your run**:
+
+**Before-merging actions** — concrete steps that `parallel-check` won't
+catch and a human must do before/around merge: e2e visual snapshots
+that need regenerating (`--update-snapshots`), a manual DB migration or
+deploy step, a new env var / config value, a required follow-up PR.
+
+The moment you notice one, append a line to `.triage-scratch/PREMERGE.md`
+(create it lazily). Don't save them for the end — log as you go. Step 10
+drains this file into the PR body's "Before merging" checklist.
 
 ---
 
@@ -221,6 +240,13 @@ it's an opaque mechanical failure you can't reason about, that's
 `failed` — write `.triage-scratch/STATUS.json` with `status: NO_FIX` and a clear
 summary, exit.
 
+If a failure is *expected* and resolved out-of-band rather than by
+changing your diff — e.g. e2e visual snapshots that legitimately need
+regenerating (`--update-snapshots`) and aren't covered by
+`parallel-check` — don't silently work around it: log the required step
+to `.triage-scratch/PREMERGE.md` (see "Reviewer flags — collect as you
+go") so it lands in the PR body.
+
 Add a regression test if practical. If the bug is hard to test
 (visual-only, third-party integration), note that in `.triage-scratch/PLAN.md`'s
 "risk" section and move on.
@@ -248,41 +274,155 @@ Save both to `.triage-scratch/BEFORE_AFTER/before.png` and `.triage-scratch/BEFO
 
 Kill the dev server: `kill $DEV_PID`.
 
-## Step 9: Codex diff-review
+## Step 9: Codex diff-review (debate + fix-and-re-review loop)
 
-Stage your changes for review (don't commit yet):
+The shape: **review → debate → apply the agreed fixes → if you changed
+the diff, re-review it.** A review proposes findings; you debate them with
+Codex; you apply what's agreed. Because a fix can introduce a *new*
+problem, a cycle that changed the diff gets re-reviewed. A cycle that
+changed **nothing** ends the loop — the review you just did already
+covers that diff.
+
+The iron rule: **converge or halt — never spin.** This loop wedged in
+production by re-running a review that returned empty under load and
+retrying forever — no progress, but a token per retry kept the token
+stream warm so the watchdog never fired. Three guards prevent that:
+
+- **Converge → done.** The loop ends when a cycle applies **no** new
+  agreed fixes — either the review returned `FINDINGS: (none)`, or the
+  debate converged with everything dismissed/contested. Nothing changed,
+  so there's nothing new to re-review; do **not** run a "confirmation"
+  pass on an unchanged diff. (Re-review fires only after a cycle that
+  *did* change the diff — see step 5.)
+- **Empty output is a FAILURE, not a clean `(none)`.** A 0-byte or
+  unparseable `diff-review.out` (no parseable `FINDINGS:` trailer) means
+  Codex wedged under load — check `.triage-scratch/diff-review.stderr`.
+  Re-run **at most once**; if it's still empty, this bug is BLOCKED
+  (write `.triage-scratch/BLOCKED.md`: "diff-review produced no parseable
+  output twice — Codex likely wedged under load"). **Never** loop on
+  empty output. Same rule for the debate `codex exec` (`debate.out`).
+- **Hard cap: 4 review `codex exec` invocations per bug** (counting
+  empty-output retries). Normal convergence is 1–3. If you hit the cap
+  with fixes applied but **not yet re-reviewed**, you are **not**
+  converged — BLOCK rather than ship unreviewed code as "done."
+
+**You hold the state.** Codex is invoked fresh (stateless) on each
+`codex exec` — thread context through the `.triage-scratch/` files below;
+do **not** rely on `codex exec` session resume (unreliable under the
+Superconductor wrapper). Re-resolve `CODEX_BIN` inside every bash block —
+shell state does not persist between calls. Keep a running **dismissed-set**
+at `.triage-scratch/dismissed.md` (one short semantic description per
+line), carried into every re-review so settled findings don't resurface:
 
 ```bash
-git add -u
 mkdir -p .triage-scratch
+trash .triage-scratch/dismissed.md 2>/dev/null || true
+```
+
+### Each pass: review → debate → apply
+
+**1. Review** (count it against the 4-review cap). Stage and run the 7-lens review:
+
+```bash
+CODEX_BIN="$(which -a codex | grep -v '/.superconductor/' | head -n1)"
+git add -u
 "$CODEX_BIN" exec "$(cat ~/Documents/dotfiles/claude-skills/minerva-asana-triage/prompts/diff-review.md)" < /dev/null 2> .triage-scratch/diff-review.stderr | tee .triage-scratch/diff-review.out
 ```
 
-Parse the trailing block:
+**Empty-output guard first.** If `diff-review.out` is empty/whitespace or
+has no parseable `FINDINGS:` trailer → apply the empty-output rule above
+(re-run once, then BLOCK). Do not treat it as `(none)`.
 
-```
-FINDINGS:
-- [fix]       <file:line>: ...
-- [ignore]    <file:line>: ...
-- [hard call] <file:line>: ...
+Otherwise parse the trailing `FINDINGS:` block — each finding has an ID
+(`F1`…), `file:line`, `what`, `why`, `fix`, and a `rec:` of `fix`/`skip`.
+Handle `FINDINGS: HALT` like ESCALATE in Step 5. Also parse the `RISKS:`
+block — **human-awareness** items, not findings: never debate or fix them;
+keep this review's list (it describes the current diff — the last review's
+list is the one that ships).
 
-SYNTHESIS_NOTES:
-...
-```
+If `FINDINGS: (none)` → the diff is clean → **done** (keep the `RISKS:`).
 
-Or `FINDINGS: HALT` (treat like ESCALATE above), or `FINDINGS: (none)`.
+### 2. Debate (≤6 rounds)
 
-For each finding:
+Decide a disposition for each finding: **accept** (you'll fix it) or
+**cut** (with a one-line reason). `rec:` is a hint, not a verdict — cut a
+`rec: fix` you genuinely disagree with, accept a `rec: skip` that's
+clearly right.
 
-- `[fix]` → apply it. After all `fix` items are applied, re-run
-  diff-review **once** to confirm. If new `fix` items appear, apply
-  them too but don't loop again — cap at one re-review.
-- `[ignore]` → don't apply; include in PR body under "Reviewer notes
-  (not addressed)".
-- `[hard call]` → don't apply; include in PR body under "Decisions
-  for reviewer".
+- Cutting **nothing**? Skip the debate — everything is accepted.
+- Otherwise write `.triage-scratch/debate.md` (the full findings list,
+  your accept/cut decision + reason per finding, and on rounds 2+ the
+  prior rounds appended), then:
+
+  ```bash
+  CODEX_BIN="$(which -a codex | grep -v '/.superconductor/' | head -n1)"
+  "$CODEX_BIN" exec "$(cat ~/Documents/dotfiles/claude-skills/minerva-asana-triage/prompts/diff-review-debate.md)" < /dev/null 2> .triage-scratch/debate.stderr | tee .triage-scratch/debate.out
+  ```
+
+  Apply the empty-output guard, then parse the trailing `OBJECTIONS:` line
+  (`DEBATE: HALT` → treat like ESCALATE).
+
+  - `OBJECTIONS: none` → Codex accepts your cuts; the debate is **converged**.
+  - Otherwise → for each ID Codex still defends, **reconsider**: concede
+    (move it back to accept) or hold the cut with a *fresh* counter-argument.
+    Append to `.triage-scratch/debate.md` and loop. After 6 rounds, stop.
+
+### 3. Classify
+
+- **Agreed** = everything you accepted (incl. any conceded mid-debate) → you'll fix these.
+- **Dismissed** = cuts Codex agreed to (not in its final `OBJECTIONS`) → append a one-line semantic description to `.triage-scratch/dismissed.md`.
+- **Contested** = cuts Codex was *still* defending when the debate ended (final `OBJECTIONS` after 6 rounds) → accumulate for the PR body; never fix, never dismiss.
+
+### 4. Apply
+
+Apply the Agreed fixes — surgically, as described, nothing extra.
+
+### 5. Re-review or done
+
+- **You applied ≥1 Agreed fix** → the diff changed and those fixes are
+  not yet reviewed → loop back to step 1 to re-review the changed diff
+  (carrying the dismissed-set), subject to the 4-review cap. This is the
+  guarded re-review — it's what catches a fix that breaks something else,
+  and it's now wedge-proof because of the empty-output guard.
+- **You applied no Agreed fix** (debate converged with everything
+  dismissed/contested) → **done**. Nothing changed; the review already
+  covers this diff — no confirmation pass.
+- **Cap reached right after applying fixes** (no budget left to re-review
+  them) → those fixes are unreviewed → **BLOCK**; do not ship as converged.
+
+### After the loop
+
+Carry two things into the PR body (Step 10): the accumulated
+**Contested** findings → "Decisions", and the latest **RISKS** → "Risks".
+Agreed findings are already fixed and Dismissed ones are settled, so
+neither needs to surface. (The third PR-body bucket, "Before merging", is
+filled from `.triage-scratch/PREMERGE.md`, which you've been appending to
+throughout — see "Reviewer flags — collect as you go".)
 
 ## Step 10: Commit, push, open PR
+
+### Step 10 gate — the diff you ship must have a converged final review
+
+Before you commit/push/open the PR, satisfy one invariant: **the exact
+diff you're about to ship has been through diff-review (Step 9) and
+converged** — a review pass covered the final diff and produced no new
+agreed fixes to apply, its debate settled (`OBJECTIONS: none` or the
+cap), and the only open disagreements are the Contested items you've
+recorded in the PR body's "For the reviewer → Decisions". If you applied
+a fix *after* the last review pass, that fix isn't covered yet — go back
+and re-review before shipping. Nothing ships with a disagreement you
+haven't surfaced there.
+
+This guards a real failure mode: an interrupted run shipping code that
+never got a clean final pass. So if you can't honestly confirm the diff
+you're shipping is the one your last review converged on — you applied a
+fix after the last review pass, or you're **resuming** and aren't sure
+the last review covered your current edits — go back and run Step 9 on
+the current diff first. A redundant review is cheap; an unreviewed ship
+is the bug.
+
+Once it holds, record `review_converged: true` in STATUS.json and carry
+it through your remaining writes.
 
 **The PR base is `main`.** Your worktree was branched from `main` directly, so the PR diff already contains only your bug fix — no rebase needed.
 
@@ -329,11 +469,18 @@ Body template (append after any default body content):
 ## Before / after
 ![Before](...) ![After](...)
 
-## Reviewer notes (not addressed)
+## For the reviewer
+
+<Always emit all three sub-sections. Write "None." under any that are empty — never drop one.>
+
+**Decisions** — diff-review findings the author cut but the reviewer still disputed after the debate (your call):
 - ...
 
-## Decisions for reviewer
+**Risks** — behavioral / contract / dependency / scope changes worth a human's eyes (awareness, not action):
 - ...
+
+**Before merging** — concrete steps `parallel-check` won't catch (snapshot regens, manual migrations/deploys, env/config, follow-up PRs):
+- [ ] ...
 
 ---
 Asana: {{ASANA_TASK_URL}}
@@ -356,6 +503,7 @@ dharma task comment {{BUG_GID}} --text "PR opened: <pr-url>
   "phase": "pr-open",
   "summary": "<one-line description of the fix>",
   "pr_url": "<gh url>",
+  "review_converged": true,
   "updated_at": "<ISO 8601>"
 }
 ```
@@ -381,5 +529,6 @@ Required fields at every write:
 Optional:
 
 - `pr_url` (required when status=PR_OPENED)
+- `review_converged` (boolean; **required `true` when status=PR_OPENED** — see the Step 10 gate. Its absence on a PR_OPENED is the orchestrator's signal that the run may have shipped without a final review.)
 - `blocked_question_count` (recommended when status=BLOCKED)
 - `phase_detail` (free-text supplemental)

@@ -41,6 +41,15 @@ The cwd is a git worktree containing an in-progress bug fix. The fix
 subagent has just finished implementing the changes (uncommitted) and
 has invoked you to review the diff before opening a PR.
 
+This is the **review** half of a debate loop. You surface findings;
+the fix subagent (the diff's author) then triages them *with* you — it
+accepts some, cuts others, and a separate debate prompt lets you push
+back on the cuts — and re-invokes this review on the changed diff until
+it comes back clean. Two consequences for your output: emit **stable
+finding IDs** and a **concrete proposed fix** per finding so the debate
+can reference them, and **don't resurface anything already settled**
+(see the dismissed-set under "Context").
+
 You will:
 1. Gather context (diff, plan, bug, project conventions).
 2. **Spawn 7 review subagents in parallel via `spawn_agent`.** Call `spawn_agent` 7 times (one per criterion below) before waiting on any of them, so they all run concurrently. Each call's prompt is that criterion's instructions plus the relevant context (full diff, PLAN.md, bug-spec.json, `.triage-scratch/WHAT_I_SAW_*.md` content, relevant CLAUDE.md sections). Capture the handle each call returns.
@@ -56,7 +65,7 @@ You will:
      if res.timed_out and pending is non-empty:
        HALT — output FINDINGS: HALT, name the still-pending handles + their criteria
    ```
-4. Once all 7 results are collected, synthesize the per-criterion findings into a single labelled list per the synthesis rules below.
+4. Once all 7 results are collected, synthesize the per-criterion findings into a single findings list (stable IDs + advisory recommendation) per the synthesis rules below.
 
 **Why the pending-set loop is mandatory:** `wait_agent` is **select-style**, not snapshot. The returned `status` map contains only agents that finalised during the current call window; in-flight agents are silently omitted. `timed_out: false` means "at least one agent finalised," NOT "all of them did." Naive batch-waiting on all 7 handles in a single call halts when only 6/7 come back — even though the 7th was still running, not lost. The loop above matches the actual contract: typically 2–3 wait calls per run, no missing results.
 
@@ -76,6 +85,7 @@ Read these from the cwd:
 - `.triage-scratch/WHAT_I_SAW_*.md` — the fix subagent's interpretation of screenshots
 - `./CLAUDE.md` — project conventions
 - `~/.claude/CLAUDE.md` — global user conventions
+- `.triage-scratch/dismissed.md` — **if present**: findings settled as "cut, and the reviewer agreed" in an *earlier* iteration of this same diff. **Do not resurface these** (match by meaning, not wording). Absent on the first iteration — that is normal, not an anomaly.
 
 Note: per the per-bug-subagent prompt's "working directory convention," all process artifacts live under `.triage-scratch/` (not at the worktree root). If a file is absent from `.triage-scratch/` that you'd expect there, halt — that's a different kind of weird than missing-file-at-cwd-root. **Exception:** `WHAT_I_SAW_*.md` files exist only when `bug-spec.json` lists attachments; if its `attachments` array is empty there will legitimately be none — that is expected, not an anomaly, so do not halt for it.
 
@@ -207,9 +217,11 @@ Review for performance and resource usage:
 - Overly broad operations: reading whole files/collections when only
   a portion is needed.
 
-### Subagent 7: Plan Faithfulness + Scope
+### Subagent 7: Plan Faithfulness, Scope & Risks
 
-This subagent is unique to triage. Compare the diff against PLAN.md
+This subagent is unique to triage. It has two jobs.
+
+**(a) Plan faithfulness + scope.** Compare the diff against PLAN.md
 and bug-spec.json.
 
 - Files edited that PLAN.md didn't mention.
@@ -228,39 +240,51 @@ Exception: reasonable adjacent changes the plan didn't anticipate
 update that follows from the change) are fine. Only flag if they
 themselves seem questionable.
 
+**(b) Risks for human awareness.** Separately, surface changes a human
+reviewer should *know about* before merging — not because they're
+wrong, but because they carry organizational context the bug report
+doesn't: behavioral changes (defaults, error semantics, security
+boundaries), interface / format / API-contract changes, new
+dependencies or coupling, meaningful perf/complexity shifts. These are
+**not** code-fix requests — they must **not** be debated or fixed; they
+pass straight through to the human. Mark each clearly as a **RISK** (vs.
+a normal finding) so the synthesizer routes it to the `RISKS:` block.
+Only surface what PLAN.md / the PR intent doesn't already make obvious.
+
 ## Synthesis (after all 7 subagents return)
 
-Once all subagents complete, synthesize into a single labelled list.
+Once all subagents complete, synthesize into a single findings list.
 
 **Deduplicate.** If multiple subagents flagged the same issue from
 different angles, merge into one finding (note the
 multi-source agreement in the description — that's signal).
 
-**Label each finding** with one of three labels:
+**Separate risks from findings.** Subagent 7 (and occasionally others)
+may surface **risks** — human-awareness items, not code fixes
+(behavioral / contract / dependency / scope changes needing
+organizational context). Route every such item to the `RISKS:` block,
+**not** `FINDINGS:`. Risks get no ID and no `rec:`, and are never
+debated or fixed — they pass through to the human untouched.
 
-- **`fix`** — clear right answer + small bounded change (under ~10
-  lines, doesn't touch unrelated code). The agent will apply it.
-- **`ignore`** — stylistic preference, debatable improvement, or
-  would expand scope past the bug. The agent will skip but forward
-  to the PR body so JP sees it.
-- **`hard call`** — real improvement requiring judgment
-  (architectural, naming with broader implications, depends on
-  intent the bug report doesn't express). The agent will skip but
-  surface to PR body for JP to decide.
+**Suppress dismissed.** If `.triage-scratch/dismissed.md` is present,
+drop any finding that matches one already listed there (match by
+meaning, not wording) — those were settled in an earlier iteration;
+resurfacing them just wastes the debate.
 
-Rubric:
+**Assign each surviving finding a stable ID** (`F1`, `F2`, … in output
+order) so the debate can reference it.
 
-- Right answer clear AND fix is small → `fix`
+**Recommend a disposition** per finding — `fix` or `skip`. This is
+**advisory**: the fix subagent is the final arbiter and will debate
+your findings with you, so recommend honestly but don't agonize. Apply
+this skill's surgical bias:
+
+- Right answer clear AND fix small (≤~10 lines, no unrelated code) → rec `fix`
+- Real but stylistic, or would balloon scope past the bug → rec `skip`
 - Right answer unclear OR depends on intent the bug report doesn't
-  express → `hard call`
-- Real but stylistic, or would balloon scope → `ignore`
-
-**Bias** (this skill prefers surgical PRs):
-
-- When in doubt between `fix` and `ignore` → prefer `ignore` (keep
-  diffs surgical).
-- When in doubt between `ignore` and `hard call` → prefer `hard call`
-  (JP sees it).
+  express → rec `skip`, and say so in `why` (these are the ones most
+  likely to end up surfaced to the human after the debate)
+- When in doubt → rec `skip` (this skill prefers surgical PRs)
 
 ## Output format
 
@@ -268,9 +292,17 @@ Output exactly this structure, nothing before or after:
 
 ```
 FINDINGS:
-- [fix]       <file:line>: <one-line description>
-- [ignore]    <file:line>: <one-line description>
-- [hard call] <file:line>: <one-line description>
+- [F1] <file:line> — rec: fix
+  what: <one-line description>
+  why:  <one-line rationale — why it matters>
+  fix:  <concrete proposed change, brief>
+- [F2] <file:line> — rec: skip
+  what: <one-line description>
+  why:  <one-line rationale>
+  fix:  <concrete proposed change, brief>
+
+RISKS:
+- <file:line or area> — <one line: a behavioral/contract/dependency/scope change a human should be aware of before merging, and why it needs their eyes>
 
 SYNTHESIS_NOTES:
 <one short paragraph: cross-subagent patterns (e.g. "multiple
@@ -279,11 +311,15 @@ src/utils/format.ts"), and any process anomalies you noticed per the
 corrigibility framing at the top.>
 ```
 
-If a label category has no findings, omit those lines. If there are
-no findings at all:
+`FINDINGS:` and `RISKS:` are independent — emit `(none)` for whichever
+is empty (you can have risks with no findings, or vice versa). With no
+findings after suppressing the dismissed-set:
 
 ```
 FINDINGS: (none)
+
+RISKS:
+- <…>   (or "(none)")
 
 SYNTHESIS_NOTES:
 <one short paragraph confirming what you reviewed and noting any

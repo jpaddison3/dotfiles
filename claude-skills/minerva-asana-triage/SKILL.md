@@ -2,7 +2,6 @@
 name: minerva-asana-triage
 description: Batch-process Asana bugs tagged jpa-bugfixes-today into PRs. Spawns per-bug subagents in parallel worktrees with Codex plan-review and diff-review.
 allowed-tools:
-  - Bash
   - Read
   - Write
   - Edit
@@ -247,6 +246,8 @@ Each Agent dispatch:
 
 After each subagent returns, branch on whether the harness reports a clean terminal status or a watchdog kill.
 
+**Acceptance rule — no PR is `pr-open` without a converged final review.** This applies to both branches below. Before you record any bug as `pr-open`, confirm the worker's Step 10 review invariant held: the shipped diff went through a diff-review that converged, with no open disagreements except the Contested items it surfaced in the PR body. The worker self-reports this as `review_converged: true` in STATUS.json — but a watchdog kill is exactly when that step gets skipped, so don't take a PR's mere existence as proof. If `review_converged` is unset/false on a `PR_OPENED`, or `.triage-scratch/` shows diff-review never reached a converged terminal state (empty/wedged `diff-review.out`, or a debate that never settled), treat it as **shipped-without-final-review**: re-dispatch a review-only pass (run Step 9 on the open PR's diff; push a follow-up commit for any Agreed fixes, add any new Contested items to the PR body), record it in `phase_detail`, and only then call it `pr-open`. When in doubt, re-review — it's cheap and idempotent.
+
 **Normal return** (subagent finished and emitted a terminal `status`):
 
 - Read `<worktree>/.triage-scratch/STATUS.json` (new layout) or `<worktree>/STATUS.json` (legacy) — whichever exists. If both exist, prefer `.triage-scratch/`. If neither exists or it's malformed, treat as `failed` with `phase_detail: "missing/malformed STATUS.json"`.
@@ -268,8 +269,8 @@ Cross-reference three sources of ground truth:
 
 Then dispatch (or don't) by case:
 
-- **STATUS=`PR_OPENED` AND `gh` confirms the PR exists**: work is complete; the kill landed on the exit-acknowledgement turn. Record `pr-open` with the `pr_url`. No re-dispatch. Set `phase_detail` to "watchdog landed at exit; work complete".
-- **Commit on branch but no PR** (`git log` shows a fresh commit, `gh` returns empty): re-dispatch with a resume prompt that picks up at Step 10 (push + `gh pr create` + Asana comment + final STATUS).
+- **STATUS=`PR_OPENED` AND `gh` confirms the PR exists**: the PR shipped — but a kill this close to the end is exactly when the final review gets skipped, so apply the **acceptance rule above** before calling it done. If the review invariant holds (`review_converged: true`, corroborated), record `pr-open` with the `pr_url`, no re-dispatch, `phase_detail` "watchdog landed at exit; work complete". If it doesn't, handle as shipped-without-final-review per the acceptance rule.
+- **Commit on branch but no PR** (`git log` shows a fresh commit, `gh` returns empty): re-dispatch with a resume prompt that picks up at Step 10. The resume must **not** skip Step 10's review gate — point the agent at it, since a commit alone is no guarantee the committed diff was review-converged.
 - **Staged/unstaged changes only, mid-pipeline phase** (`implementing` / `testing` / `diff-review` per STATUS.json, with `PLAN.md` + maybe `diff-review.out` in `.triage-scratch/`): re-dispatch with a resume prompt naming the prior phase and listing the artifacts present. Tell the new agent to verify state itself, then continue from the appropriate step.
 - **Barely started** (phase `reading` or no useful artifacts): re-dispatch fresh; tell the new subagent to overwrite the stale `STATUS.json`.
 
@@ -280,7 +281,7 @@ Then dispatch (or don't) by case:
 - A pointer to `/tmp/triage-prompts/<gid>.md` as the original task definition (for reference; the new agent does not need to redo Steps 1-N).
 - An instruction to **verify the prior state itself** (read `STATUS.json`, `PLAN.md`, `diff-review.out` if present; run `git diff --cached` and `git diff`) **before acting**.
 - The exact step to continue from.
-- Restated key invariants: no `--no-verify` (unless a pre-existing flake is confirmed via stash-test-restore), no `Monitor` tool, pre-authorized for git ops.
+- Restated key invariants: no `--no-verify` (unless a pre-existing flake is confirmed via stash-test-restore), no `Monitor` tool, pre-authorized for git ops, and **the Step 10 review gate** — don't open or finalize a PR whose final diff wasn't review-converged; when unsure, re-run Step 9 first.
 
 Track each resume in `state.json` `phase_detail` so the Step 8 summary can call it out as "resumed after watchdog kill at `<phase>`".
 
