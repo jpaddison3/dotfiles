@@ -346,6 +346,14 @@ If after dedupe the batch is empty (every PR has its own per-PR file already), `
 
 The motivation for dedupe: per-PR notes from `rpr` are reviewer-curated and authoritative; the batch is only to fill the gaps where no per-PR note ever got written.
 
+**Then reap the cycle.** Once the batch summary is written and deduped, the cycle is fully wrapped and its product-research is captured — so run cleanup to reap its now-terminal worktrees instead of leaving them to linger until some future run's Step 3:
+
+```bash
+"$SCRIPTS_DIR/triage-cleanup"
+```
+
+Same as Step 3 (halt with the corrigibility framing if the script is missing). It's safe to run here: cleanup **preserves** `manual` worktrees, so anything JP is holding offline stays put — it only reaps the cycle's finished work.
+
 ## State.json write protocol
 
 Only this skill (and the `triage-*` scripts) writes `state.json`. Subagents write only to their own worktree's `STATUS.json`. All writes use `.tmp` + `mv`.
