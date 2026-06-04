@@ -69,17 +69,21 @@ These placeholders are substituted at dispatch time:
 
 ## Your task
 
-You are fixing one bug. Your worktree is pre-created and set up
-(env files symlinked, `node_modules` installed). You will:
+You are handling one tagged Asana task — **a bug to fix or a small /
+well-specified feature to build**. (This prompt says "the bug" as
+shorthand throughout; read it as "the bug or feature" everywhere, and
+likewise for `bug-spec.json`, the `bug/` branch, etc.) Your worktree is
+pre-created and set up (env files symlinked, `node_modules` installed).
+You will:
 
 1. Read context
 2. Interpret screenshots → `.triage-scratch/WHAT_I_SAW_*.md`
-3. Investigate → `.triage-scratch/HYPOTHESIS.md` (notes for yourself; not a deliverable)
+3. Investigate (→ `.triage-scratch/HYPOTHESIS.md`), then **reproduce the current behavior in the browser** if possible — *before* planning
 4. Write `.triage-scratch/PLAN.md`
 5. Run Codex plan-review — handle `APPROVE` / `REVISE` / `ESCALATE` / `HALT`
 6. Implement
 7. Static checks + relevant tests
-8. Visual verification (UI bugs)
+8. Verify the fix in the browser (UI work)
 9. Run Codex diff-review — debate the findings with Codex, apply the agreed fixes; converge or halt (never spin)
 10. Rebase onto main, push, open PR + post Asana comment
 11. Write final `.triage-scratch/STATUS.json`
@@ -164,17 +168,45 @@ honest about uncertainty.
 If a screenshot is ambiguous, write that. Don't fill in plausible
 guesses.
 
-## Step 3: Investigate
+## Step 3: Investigate, then reproduce
 
-Grep the codebase. Locate the offending code. Form a hypothesis.
-Keep notes in `.triage-scratch/HYPOTHESIS.md` if useful (not required).
+Grep the codebase. Locate the offending code (for a bug) or where the
+feature will slot in (for a feature). Form a hypothesis. Keep notes in
+`.triage-scratch/HYPOTHESIS.md` if useful (not required).
+
+**Reproduce before you plan — in the browser if at all possible.** For
+anything user-visible, see the current behavior with your own eyes
+*before* writing the plan: a bug you can't reproduce is one you
+shouldn't be confident you understand, and a feature is far easier to
+scope once you've seen where it lands. This also gets you the "before"
+shot early, instead of discovering at Step 8 that the premise was wrong.
+
+```bash
+mkdir -p .triage-scratch
+npm run dev:portless > .triage-scratch/dev.log 2>&1 &
+DEV_PID=$!
+```
+
+Poll `.triage-scratch/dev.log` until the server is ready ("Ready in" or
+the `$PORTLESS_URL`) with an inline shell `until` loop (never `Monitor`);
+extract the URL. Use the Playwright MCP tools to navigate to the page
+from the task, and capture a **"before"** screenshot to
+`.triage-scratch/BEFORE_AFTER/before.png` — the bug in its broken state,
+or the pre-feature state. Kill the server when done (`kill $DEV_PID`).
+
+- **A bug that won't reproduce is a halt** — the report may be stale,
+  already fixed, or misunderstood. Write `.triage-scratch/BLOCKED.md`
+  with exactly what you saw instead of guessing a fix.
+- **Not browser-reproducible** (backend, data, build): reproduce however
+  you can — a failing test, a script, an API call — or note in PLAN.md
+  why you couldn't, and carry on.
 
 ## Step 4: PLAN.md
 
 Write `.triage-scratch/PLAN.md` with these sections (use `##` headings):
 
-- **Bug** (1-line restatement from `bug-spec.json`)
-- **What I saw** (summary of WHAT_I_SAW files)
+- **Ticket** (1-line restatement from `bug-spec.json` — the bug, or the feature ask)
+- **What I saw** (summary of WHAT_I_SAW files + what you reproduced in Step 3)
 - **Investigation** (key grep results, relevant file paths)
 - **Diagnosis** (root cause, one paragraph)
 - **Proposed fix** (what changes, scoped, with file paths)
@@ -251,9 +283,10 @@ Add a regression test if practical. If the bug is hard to test
 (visual-only, third-party integration), note that in `.triage-scratch/PLAN.md`'s
 "risk" section and move on.
 
-## Step 8: Visual verification (UI bugs only)
+## Step 8: Verify the fix in the browser (UI work only)
 
-For visual / interactive bugs:
+You already captured the **before** in Step 3 — now confirm your change
+actually works:
 
 ```bash
 mkdir -p .triage-scratch
@@ -261,18 +294,14 @@ npm run dev:portless > .triage-scratch/dev.log 2>&1 &
 DEV_PID=$!
 ```
 
-Poll `.triage-scratch/dev.log` until the server is ready (look for "Ready in" or
-the `$PORTLESS_URL`). Extract the URL.
+Poll `.triage-scratch/dev.log` until the server is ready ("Ready in" or
+the `$PORTLESS_URL`) with an inline shell `until` loop (never `Monitor`);
+extract the URL. Use the Playwright MCP tools to navigate to the same
+page and confirm the bug is gone / the feature behaves as specified.
+Capture an **"after"** screenshot to `.triage-scratch/BEFORE_AFTER/after.png`.
 
-Use the Playwright MCP tools to navigate to the page from the bug
-report. Take a "before" screenshot to confirm the bug is reproduced
-(if it isn't, that's a halt — write BLOCKED with what you saw).
-Verify your fix worked by re-checking after a refresh. Take an
-"after" screenshot.
-
-Save both to `.triage-scratch/BEFORE_AFTER/before.png` and `.triage-scratch/BEFORE_AFTER/after.png`.
-
-Kill the dev server: `kill $DEV_PID`.
+If the fix doesn't hold up, go back to Step 6 — or, if you're no longer
+sure the change is right, halt with BLOCKED. Kill the dev server: `kill $DEV_PID`.
 
 ## Step 9: Codex diff-review (debate + fix-and-re-review loop)
 
@@ -424,7 +453,7 @@ is the bug.
 Once it holds, record `review_converged: true` in STATUS.json and carry
 it through your remaining writes.
 
-**The PR base is `main`.** Your worktree was branched from `main` directly, so the PR diff already contains only your bug fix — no rebase needed.
+**The PR base is `main`.** Your worktree was branched from `main` directly, so the PR diff already contains only your change — no rebase needed.
 
 You are **pre-authorized** for every command in this step (see the *Git authorization* section above). Don't pause to ask.
 
@@ -459,12 +488,14 @@ If the pre-commit hook fails: the commit did NOT happen. Fix the underlying issu
 Body template (append after any default body content):
 
 ```
-## What was the bug
+> 🤖 Automated PR — authored by Claude as part of autonomous Asana flow.
 
-<short summary>
+## What this addresses
+
+<short summary of the bug or feature>
 
 ## What I saw
-<one paragraph distilled from WHAT_I_SAW_*.md>
+<one paragraph distilled from WHAT_I_SAW_*.md + the Step 3 repro>
 
 ## Before / after
 ![Before](...) ![After](...)

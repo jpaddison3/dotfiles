@@ -1,6 +1,6 @@
 ---
 name: minerva-asana-triage
-description: Batch-process Asana bugs tagged jpa-bugfixes-today into PRs. Spawns per-bug subagents in parallel worktrees with Codex plan-review and diff-review.
+description: Batch-process Asana tickets — bugs and small / well-specified features — tagged jpa-bugfixes-today into PRs. Spawns a subagent per ticket in parallel worktrees with Codex plan-review and diff-review.
 allowed-tools:
   - Read
   - Write
@@ -30,9 +30,9 @@ cookie.
 
 ## Talking to JP
 
-When talking to JP, lead with the bug title — he does not memorize
-16-digit Asana GIDs. Last-4-digits in parens is fine for
-disambiguation.
+When talking to JP, lead with the ticket title (bug or feature) — he
+does not memorize 16-digit Asana GIDs. Last-4-digits in parens is fine
+for disambiguation.
 
 - Good: "Workers bug: dispatched"; "A/B tests bug (5092) halted"; "Double border (PR #712) merged"
 - Bad: "1214783653255092: dispatched"; "Halt on 1214822328764375"
@@ -42,12 +42,17 @@ canonical. Human-facing prose only.
 
 ## What this skill does
 
-Reads incomplete Asana tasks tagged `jpa-bugfixes-today`, dispatches
-per-bug subagents in parallel git worktrees (siblings to `minerva/`).
-Each subagent investigates, writes a plan, runs Codex plan-review,
-implements, runs Codex diff-review, opens a PR (or writes
+Reads incomplete Asana tasks tagged `jpa-bugfixes-today` — each a
+**bug to fix or a small / well-specified feature to build** — and
+dispatches a subagent per task in parallel git worktrees (siblings to
+`minerva/`). Each subagent investigates, reproduces the current
+behavior in the browser where possible, writes a plan, runs Codex
+plan-review, implements, runs Codex diff-review, opens a PR (or writes
 `BLOCKED.md` if it needs human input). You aggregate results into a
 summary table at the end.
+
+(The tag is still named `jpa-bugfixes-today` and the code says "bug"
+in many places — read it as "bug or feature" throughout.)
 
 Design doc: `notes/minerva-asana-triage-plan.md`. State machine
 diagram: `triage-state-machine.html`.
@@ -334,7 +339,7 @@ author: jpaddison3
 ---
 ```
 
-Then a `## PR #NNN: <title>` section per PR, each with the standard per-PR template fields: **What changed**, **Why**, **Product area**, **User-facing changes**, **Links**. Source the content from `gh pr view <pr> --json title,body,files` — preserve the technical detail but rephrase the PR's "What was the bug" content as descriptive prose (don't copy-paste).
+Then a `## PR #NNN: <title>` section per PR, each with the standard per-PR template fields: **What changed**, **Why**, **Product area**, **User-facing changes**, **Links**. Source the content from `gh pr view <pr> --json title,body,files` — preserve the technical detail but rephrase the PR's "What this addresses" content as descriptive prose (don't copy-paste).
 
 For PRs that closed without merging, include a brief stub: title, "What was attempted", "Why it didn't ship", "Product area" (note the bug is still un-mitigated if relevant), "User-facing changes: None — PR did not ship", link.
 
