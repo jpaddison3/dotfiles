@@ -46,7 +46,7 @@ password () {
 # TODO; might not be all I need
 unsetopt share_history
 
-# codex-shim: mirror Claude Code's /fast onto Codex's fast_mode feature flag.
+# codex-shim: mirror Claude Code's /fast onto Codex's service_tier.
 # The shim must be the "first non-superconductor `codex`" that both our review
 # skills (`which -a codex | grep -v superconductor | head -1`) and SC's own
 # find_real_binary resolve to — which means it must sit immediately BEFORE nvm's

@@ -1,8 +1,8 @@
 # codex-shim — mirror Claude Code's `/fast` onto Codex
 
-`codex-mirror` makes Codex's `fast_mode` feature flag follow Claude Code's
-current `/fast` state, so a `codex` call made from inside a Claude session runs
-at the same speed tier as Claude.
+`codex-mirror` makes Codex's `service_tier` follow Claude Code's current `/fast`
+state, so a `codex` call made from inside a Claude session runs at the same speed
+tier as Claude.
 
 It is installed as a **transparent PATH shim**, so there is nothing to invoke by
 hand and no skill to remember — every `codex` call routes through it
@@ -50,10 +50,10 @@ The shim:
 
 ## Two things it deliberately handles
 
-- **Bypasses Superconductor's wrapper for resolution.** `codex` on PATH resolves
-  to `~/.superconductor/bin/codex`, whose injected MCP server can hang
-  `codex review` when run non-interactively from a Claude session. The shim (and
-  the review skills) resolve the real binary instead.
+- **Bypasses Superconductor's wrapper for resolution.** `codex` on PATH can
+  resolve to `~/.superconductor/bin/codex`, which injects notification/session
+  config via `-c` overrides. The shim (and the review skills) resolve the real
+  binary instead for non-interactive review calls.
 - **One-turn lag.** `usage.speed` reflects the last *persisted* assistant turn,
   so a `/fast` toggle in the same message that launches the work reads the prior
   state. Harmless for multi-turn flows (reviews, debates).

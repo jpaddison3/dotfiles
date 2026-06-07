@@ -38,7 +38,7 @@ ln -sf $SCRIPTPATH/claude-skills/review-claude ~/.claude/skills/review-claude
 ln -sf $SCRIPTPATH/claude-skills/review-multi ~/.claude/skills/review-multi
 ln -sf $SCRIPTPATH/claude-skills/rpr ~/.claude/skills/rpr
 
-# codex-shim: mirror Claude Code's /fast onto Codex's fast_mode. The shim must be
+# codex-shim: mirror Claude Code's /fast onto Codex's service_tier. The shim must be
 # the first non-superconductor `codex` on PATH; zshrc.zsh slots ~/.local/codex-shim
 # in just before nvm's node bin. See codex-shim/README.md.
 mkdir -p ~/.local/codex-shim

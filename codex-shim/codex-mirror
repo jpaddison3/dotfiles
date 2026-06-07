@@ -1,20 +1,21 @@
 #!/usr/bin/env bash
-# codex-mirror — call Codex with fast_mode mirroring Claude Code's current speed.
+# codex-mirror — call Codex with service_tier mirroring Claude Code's current speed.
 #
 # Why this exists
 #   Claude Code's /fast toggle is echoed back by the API as usage.speed
 #   ("fast" | "standard") and persisted to the session transcript. Codex has an
-#   equivalent `fast_mode` feature flag. This wrapper reads Claude's current
-#   speed and injects `-c features.fast_mode=true|false` so a Codex call made
-#   from inside a Claude session runs at the same tier.
+#   equivalent Fast tier selected through `service_tier`. This wrapper reads
+#   Claude's current speed and injects `-c service_tier=fast|default` so a Codex
+#   call made from inside a Claude session runs at the same tier.
 #
-# Why a script and NOT a PATH binary named `codex`
+# Why the shim resolves past itself
 #   Superconductor ships its own wrapper at ~/.superconductor/bin/codex (first on
-#   PATH) that injects an MCP server via -c overrides; that handshake can hang
-#   `codex review` when run non-interactively from a Claude session. We
-#   deliberately resolve the REAL binary (bypassing SC's wrapper), and we keep
-#   THIS script off PATH and differently named so it can never shadow, or be
-#   shadowed by, Superconductor's wrapper.
+#   PATH) that injects notification/session config via -c overrides. Those
+#   wrapper-owned settings are useful for interactive Superconductor sessions,
+#   but can be a bad fit for non-interactive review calls from Claude sessions.
+#   The script may be symlinked onto PATH as `codex`, so it deliberately resolves
+#   the REAL binary by skipping both Superconductor's wrapper and its own
+#   directory.
 #
 # Usage
 #   codex-mirror [any codex args]        e.g.  codex-mirror review --uncommitted
@@ -26,13 +27,17 @@
 set -euo pipefail
 
 # 1. Resolve the REAL codex binary, skipping Superconductor's wrapper AND this
-#    script's own directory. The self-skip lets this same file be symlinked onto
-#    PATH as `codex` (a transparent shim) without execing itself in a loop.
-SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd -P || true)"
+#    script itself. The self-skip lets this same file be symlinked onto PATH as
+#    `codex` (a transparent shim) without execing itself in a loop.
+SELF_REF="${BASH_SOURCE[0]:-$0}"
+SELF_DIR="$(cd "$(dirname "$SELF_REF")" 2>/dev/null && pwd -P || true)"
+SELF_PATH=""
+[ -n "$SELF_DIR" ] && SELF_PATH="$SELF_DIR/$(basename "$SELF_REF")"
 REAL_CODEX=""
 while IFS= read -r cand; do
   [ -n "$cand" ] || continue
   case "$cand" in */.superconductor/*|*/.superconductor-dev/*) continue ;; esac
+  [ -n "$SELF_PATH" ] && [ "$cand" -ef "$SELF_PATH" ] 2>/dev/null && continue
   cdir="$(cd "$(dirname "$cand")" 2>/dev/null && pwd -P || true)"
   [ -n "$SELF_DIR" ] && [ "$cdir" = "$SELF_DIR" ] && continue
   REAL_CODEX="$cand"; break
