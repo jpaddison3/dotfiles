@@ -55,12 +55,16 @@ if [ -z "$speed" ] && [ -n "${CLAUDE_CODE_SESSION_ID:-}" ] && command -v jq >/de
   fi
 fi
 
-# 3. Map speed -> fast_mode flag. If we can't tell (not in a Claude session, no
-#    jq, empty transcript), inject nothing and let Codex use its own config.
+# 3. Map speed -> service_tier. This is the real lever for non-interactive runs:
+#    config "fast" maps to the request service tier "priority" (1.5x speed, more
+#    credits); "default" is standard. (The features.fast_mode flag only gates the
+#    TUI's /fast command and does nothing for `codex exec`/`review`.) If we can't
+#    tell (not in a Claude session, no jq, empty transcript), inject nothing and
+#    let Codex use its own config.
 inject=()
 case "$speed" in
-  fast)     inject=(-c features.fast_mode=true) ;;
-  standard) inject=(-c features.fast_mode=false) ;;
+  fast)     inject=(-c service_tier=fast) ;;
+  standard) inject=(-c service_tier=default) ;;
   *)        : ;;  # unknown -> defer to codex config default
 esac
 

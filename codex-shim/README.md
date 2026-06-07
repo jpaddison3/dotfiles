@@ -15,10 +15,17 @@ automatically, including the review skills (`review-codex`, `review-multi`,
    (`"fast"` | `"standard"`) and persisted to the session transcript at
    `~/.claude/projects/<cwd-slug>/$CLAUDE_CODE_SESSION_ID.jsonl`, path
    `.message.usage.speed`.
-2. Codex exposes an equivalent **`fast_mode`** feature flag (stable).
-3. `codex-mirror` reads Claude's speed and injects `-c features.fast_mode=true`
-   or `=false` (a global, position-independent override) before execing the real
-   Codex binary.
+2. Codex exposes an equivalent **Fast tier**: the request `service_tier`
+   `"priority"` ("1.5x speed, increased usage" — same model, same intelligence),
+   selected via the config key `service_tier = "fast"` (which maps to request
+   `priority`); `"default"` is standard.
+3. `codex-mirror` reads Claude's speed and injects `-c service_tier=fast` or
+   `-c service_tier=default` (a global, position-independent override) before
+   execing the real Codex binary.
+
+> Note: the `features.fast_mode` flag only gates the TUI's `/fast` command and
+> does **nothing** for non-interactive `codex exec`/`review` — `service_tier` is
+> the lever that actually drives the request tier.
 
 ## Install (the PATH shim)
 
@@ -71,8 +78,15 @@ CODEX_MIRROR_DEBUG=1 ~/.local/codex-shim/codex review --uncommitted
 CODEX_MIRROR_DEBUG=1 CODEX_MIRROR_SPEED=standard ~/.local/codex-shim/codex review
 ```
 
-## Caveat
+## Behavior parity (confirmed)
 
-The `fast_mode` name matches Claude's concept and the flag toggles correctly,
-but it has not been confirmed that Codex's `fast_mode` changes behavior in
-exactly the same way (output-speed / priority tier) as Claude's `/fast`.
+Per OpenAI's Codex docs, Fast mode runs the **same model** ~**1.5x faster** at
+higher credit cost (intelligence unchanged) — semantically identical to Claude's
+`/fast`. So mirroring is the right thing to do.
+
+Not network-verified: that `-c service_tier=fast` produces the 1.5x speedup on a
+given `codex exec`/`review` run (Codex doesn't record the tier in its session
+rollouts, so it can't be confirmed after the fact). But `service_tier` is the
+documented, config-level lever — and JP's `~/.codex/config.toml` already uses
+`service_tier = "default"` as its standard, so injecting `fast`/`default` is the
+correct, intended mechanism.
