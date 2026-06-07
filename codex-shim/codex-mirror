@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# codex-mirror — call Codex with fast_mode mirroring Claude Code's current speed.
+#
+# Why this exists
+#   Claude Code's /fast toggle is echoed back by the API as usage.speed
+#   ("fast" | "standard") and persisted to the session transcript. Codex has an
+#   equivalent `fast_mode` feature flag. This wrapper reads Claude's current
+#   speed and injects `-c features.fast_mode=true|false` so a Codex call made
+#   from inside a Claude session runs at the same tier.
+#
+# Why a script and NOT a PATH binary named `codex`
+#   Superconductor ships its own wrapper at ~/.superconductor/bin/codex (first on
+#   PATH) that injects an MCP server via -c overrides; that handshake can hang
+#   `codex review` when run non-interactively from a Claude session. We
+#   deliberately resolve the REAL binary (bypassing SC's wrapper), and we keep
+#   THIS script off PATH and differently named so it can never shadow, or be
+#   shadowed by, Superconductor's wrapper.
+#
+# Usage
+#   codex-mirror [any codex args]        e.g.  codex-mirror review --uncommitted
+#
+# Env knobs
+#   CODEX_MIRROR_SPEED=fast|standard     force the mode (skips detection)
+#   CODEX_MIRROR_DEBUG=1                  print resolved command + mode, do NOT exec
+
+set -euo pipefail
+
+# 1. Resolve the REAL codex binary, skipping Superconductor's wrapper AND this
+#    script's own directory. The self-skip lets this same file be symlinked onto
+#    PATH as `codex` (a transparent shim) without execing itself in a loop.
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd -P || true)"
+REAL_CODEX=""
+while IFS= read -r cand; do
+  [ -n "$cand" ] || continue
+  case "$cand" in */.superconductor/*|*/.superconductor-dev/*) continue ;; esac
+  cdir="$(cd "$(dirname "$cand")" 2>/dev/null && pwd -P || true)"
+  [ -n "$SELF_DIR" ] && [ "$cdir" = "$SELF_DIR" ] && continue
+  REAL_CODEX="$cand"; break
+done < <(which -a codex 2>/dev/null || true)
+if [ -z "$REAL_CODEX" ]; then
+  echo "codex-mirror: no real codex binary found on PATH (outside Superconductor / self)." >&2
+  exit 127
+fi
+
+# 2. Determine Claude Code's current speed.
+#    Precedence: explicit override > session transcript > unknown.
+#    usage.speed is "fast" when /fast is on, "standard" otherwise. It reflects
+#    the last PERSISTED assistant turn, so a /fast toggle lands one turn later.
+speed="${CODEX_MIRROR_SPEED:-}"
+if [ -z "$speed" ] && [ -n "${CLAUDE_CODE_SESSION_ID:-}" ] && command -v jq >/dev/null 2>&1; then
+  transcript="$(find "$HOME/.claude/projects" -name "${CLAUDE_CODE_SESSION_ID}.jsonl" 2>/dev/null | head -n1 || true)"
+  if [ -n "$transcript" ]; then
+    speed="$(jq -rc 'select(.type=="assistant")|.message.usage.speed' "$transcript" 2>/dev/null \
+             | grep -v '^null$' | tail -n1 || true)"
+  fi
+fi
+
+# 3. Map speed -> fast_mode flag. If we can't tell (not in a Claude session, no
+#    jq, empty transcript), inject nothing and let Codex use its own config.
+inject=()
+case "$speed" in
+  fast)     inject=(-c features.fast_mode=true) ;;
+  standard) inject=(-c features.fast_mode=false) ;;
+  *)        : ;;  # unknown -> defer to codex config default
+esac
+
+if [ -n "${CODEX_MIRROR_DEBUG:-}" ]; then
+  echo "codex-mirror: real=$REAL_CODEX speed='${speed:-unknown}' inject='${inject[*]:-<none>}'" >&2
+  echo "codex-mirror: would run: $REAL_CODEX ${inject[*]:-} $*" >&2
+  exit 0
+fi
+
+# -c is a global top-level override, so placing it before the subcommand is
+# position-independent (works for review, exec, etc.). The ${arr[@]+...} idiom
+# keeps an empty array safe under `set -u` on bash 3.2 (macOS system bash).
+exec "$REAL_CODEX" ${inject[@]+"${inject[@]}"} "$@"

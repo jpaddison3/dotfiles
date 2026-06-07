@@ -45,3 +45,24 @@ password () {
 
 # TODO; might not be all I need
 unsetopt share_history
+
+# codex-shim: mirror Claude Code's /fast onto Codex's fast_mode feature flag.
+# The shim must be the "first non-superconductor `codex`" that both our review
+# skills (`which -a codex | grep -v superconductor | head -1`) and SC's own
+# find_real_binary resolve to — which means it must sit immediately BEFORE nvm's
+# node bin (nvm often prepends itself to the very front, ahead of SC). Outside a
+# Claude session the shim is a transparent passthrough, so plain `codex` from the
+# CLI is unchanged. Details: ~/Documents/dotfiles/codex-shim/README.md
+() {
+  emulate -L zsh
+  local seg; local -a out; local inserted=0
+  for seg in $path; do
+    [[ $seg == $HOME/.local/codex-shim ]] && continue          # drop existing shim
+    if (( ! inserted )) && [[ $seg == $HOME/.nvm/versions/node/*/bin ]]; then
+      out+=$HOME/.local/codex-shim; inserted=1                  # insert before nvm
+    fi
+    out+=$seg
+  done
+  (( inserted )) || out=($HOME/.local/codex-shim $out)          # no nvm dir? front
+  path=($out)
+}

@@ -38,6 +38,12 @@ ln -sf $SCRIPTPATH/claude-skills/review-claude ~/.claude/skills/review-claude
 ln -sf $SCRIPTPATH/claude-skills/review-multi ~/.claude/skills/review-multi
 ln -sf $SCRIPTPATH/claude-skills/rpr ~/.claude/skills/rpr
 
+# codex-shim: mirror Claude Code's /fast onto Codex's fast_mode. The shim must be
+# the first non-superconductor `codex` on PATH; zshrc.zsh slots ~/.local/codex-shim
+# in just before nvm's node bin. See codex-shim/README.md.
+mkdir -p ~/.local/codex-shim
+ln -sf $SCRIPTPATH/codex-shim/codex-mirror ~/.local/codex-shim/codex
+
 # Codex skills
 mkdir -p ~/.codex/skills
 ln -sf $SCRIPTPATH/claude-skills/ci ~/.codex/skills/ci
