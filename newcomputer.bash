@@ -78,7 +78,7 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jpaddison.pull-grano
 
 # Software installation:
 # Manual install: pure prompt (brew failed), ohmyzsh, cargo, nvm, yarn
-brew install tmux tmuxinator reattach-to-user-namespace neovim
+brew install tmux tmuxinator reattach-to-user-namespace neovim coreutils
 
 # TODO: Generate ssh keys for github
 # TODO: VSCode extensions
