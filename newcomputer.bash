@@ -80,5 +80,17 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jpaddison.pull-grano
 # Manual install: pure prompt (brew failed), ohmyzsh, cargo, nvm, yarn
 brew install tmux tmuxinator reattach-to-user-namespace neovim coreutils
 
+# Python venv for ad-hoc scripting. Homebrew python is externally-managed (PEP 668),
+# so a venv is the sane place for global-ish packages. ~/venvs/py3 is a version-proof
+# symlink pointing at the real versioned dir; bump PYVER on the next upgrade and re-run.
+# py-requirements.txt is the source of truth; shell alias/VSCode/CLAUDE.md all use py3.
+brew install python@3.14
+PYVER=3.14
+mkdir -p ~/venvs
+[ -d ~/venvs/py${PYVER//.} ] || python${PYVER} -m venv ~/venvs/py${PYVER//.}
+~/venvs/py${PYVER//.}/bin/pip install --upgrade pip
+~/venvs/py${PYVER//.}/bin/pip install -r "$SCRIPTPATH/py-requirements.txt"
+ln -sfn ~/venvs/py${PYVER//.} ~/venvs/py3
+
 # TODO: Generate ssh keys for github
 # TODO: VSCode extensions

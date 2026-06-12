@@ -1,0 +1,37 @@
+# Default packages for the shared scripting venv (~/venvs/py3 -> py314).
+# A comfy toolkit for ad-hoc work and for Claude agents to lean on.
+# Rebuild a fresh venv with:
+#   python3.14 -m venv ~/venvs/py314 && ~/venvs/py314/bin/pip install -r py-requirements.txt
+# (newcomputer.bash does this and points ~/venvs/py3 at it.)
+
+# --- Data analysis (ante to play) ---
+ipython           # the REPL
+numpy
+scipy
+pandas            # reads/writes xlsx, csv, json, ...
+statsmodels
+
+# --- Validation / config ---
+pydantic
+python-dotenv
+
+# --- Web ---
+requests
+aiohttp
+beautifulsoup4    # HTML/XML parsing
+lxml              # fast parser backend for bs4
+
+# --- Office documents ---
+python-docx       # read/write Word .docx
+openpyxl          # read/write Excel .xlsx (pandas engine)
+pypdf             # read / split / merge PDFs
+
+# --- Terminal & formats ---
+rich              # pretty terminal output: tables, color, nice tracebacks
+tabulate          # markdown/plain tables (also powers df.to_markdown())
+pyyaml            # YAML
+python-dateutil   # forgiving date parsing
+pillow            # image read / manipulate / convert
+
+# --- Work-specific (not really a "default"; drop if rebuilding elsewhere) ---
+algoliasearch
