@@ -30,7 +30,7 @@ windows:
       layout: even-horizontal
       root: ~
       panes:
-        - py313 && ipython
+        - py3 && ipython
         - node
   - personal:
       layout: tiled

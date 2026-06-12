@@ -42,8 +42,8 @@ export INFOPATH="/opt/homebrew/share/info:${INFOPATH:-}";
 export GOPATH=$HOME/.go
 export PATH=$PATH:$GOPATH/bin
 
-# Python
-alias py313='. ~/venvs/py313/bin/activate'
+# Python — py3 is a version-proof symlink (~/venvs/py3 -> py314); see py-requirements.txt
+alias py3='. ~/venvs/py3/bin/activate'
 
 # PSQL
 export PATH="/opt/homebrew/opt/postgresql@14/bin:$PATH"

@@ -1,4 +1,4 @@
-#!/Users/jpaddison/Documents/dotfiles/py313/bin/python3
+#!/Users/jpaddison/venvs/py3/bin/python3
 """Fetch all review data for a GitHub PR and output human-readable text.
 
 Usage:

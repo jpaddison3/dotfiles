@@ -130,7 +130,7 @@
   "docker.showStartPage": false,
   "codestream.email": "johnpaddison@gmail.com",
   "redhat.telemetry.enabled": false,
-  "python.defaultInterpreterPath": "/Users/jpaddison/venvs/py313/bin/python",
+  "python.defaultInterpreterPath": "/Users/jpaddison/venvs/py3/bin/python",
   "editor.inlineSuggest.enabled": true,
   "notebook.cellToolbarLocation": {
     "default": "right",
