@@ -25,7 +25,6 @@ mkdir -p ~/.config
 ln -sf $SCRIPTPATH/nvim ~/.config/nvim
 
 # Other
-ln -sf $SCRIPTPATH/psqlrc ~/.psqlrc
 ln -sf $SCRIPTPATH/dotgithelpers.bash ~/.githelpers
 # You'll need to copy the git config yourself to edit your email in
 
