@@ -28,6 +28,16 @@ ln -sf $SCRIPTPATH/nvim ~/.config/nvim
 ln -sf $SCRIPTPATH/dotgithelpers.bash ~/.githelpers
 # You'll need to copy the git config yourself to edit your email in
 
+# Passwordless sudo for my user. Drop-in (not /etc/sudoers directly) so a bad edit
+# can't lock sudo out; visudo -cf validates before we trust it. Tradeoff: any process
+# running as me can reach root with no friction — accepted on a personal machine.
+# Caveat: a macOS major upgrade can wipe /etc/sudoers.d/ — re-run this block if sudo
+# starts prompting again. Needs your password the first time (the one and only sudo
+# prompt in this script).
+echo "$(whoami) ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/$(whoami)-nopasswd
+sudo chmod 440 /etc/sudoers.d/$(whoami)-nopasswd
+sudo visudo -cf /etc/sudoers.d/$(whoami)-nopasswd
+
 # Claude configuration
 mkdir -p ~/.claude
 mkdir -p ~/.claude/skills
