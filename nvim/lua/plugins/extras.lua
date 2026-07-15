@@ -13,6 +13,9 @@ return {
     event = "VeryLazy", -- Load lazily for fast startup
   },
 
+  -- Don't auto-insert matching ) ] } " ' ` when typing the opening character.
+  { "nvim-mini/mini.pairs", enabled = false },
+
   -- Free up <leader>fg so our "Copy relative path" keymap in config/keymaps.lua wins.
   {
     "folke/snacks.nvim",
