@@ -53,16 +53,22 @@ unsetopt share_history
 # node bin (nvm often prepends itself to the very front, ahead of SC). Outside a
 # Claude session the shim is a transparent passthrough, so plain `codex` from the
 # CLI is unchanged. Details: ~/Documents/dotfiles/codex-shim/README.md
+#
+# ~/.local/bin gets the same treatment so the native Claude Code install
+# (~/.local/bin/claude) always beats a stray npm-global copy in nvm's bin —
+# an npm claude resurrected there is inert instead of silently taking over.
+# (zprofile's pipx line appends ~/.local/bin at the tail; we drop that and
+# reinsert it here, ahead of nvm. It holds no node/npm, so nothing shadows.)
 () {
   emulate -L zsh
   local seg; local -a out; local inserted=0
   for seg in $path; do
-    [[ $seg == $HOME/.local/codex-shim ]] && continue          # drop existing shim
+    [[ $seg == $HOME/.local/codex-shim || $seg == $HOME/.local/bin ]] && continue  # drop existing
     if (( ! inserted )) && [[ $seg == $HOME/.nvm/versions/node/*/bin ]]; then
-      out+=$HOME/.local/codex-shim; inserted=1                  # insert before nvm
+      out+=($HOME/.local/codex-shim $HOME/.local/bin); inserted=1  # insert before nvm
     fi
     out+=$seg
   done
-  (( inserted )) || out=($HOME/.local/codex-shim $out)          # no nvm dir? front
+  (( inserted )) || out=($HOME/.local/codex-shim $HOME/.local/bin $out)  # no nvm dir? front
   path=($out)
 }
