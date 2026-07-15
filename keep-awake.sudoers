@@ -1,0 +1,8 @@
+# Installed to /etc/sudoers.d/keep-awake (0440 root:wheel) by install-keep-awake.sh.
+#
+# Lets `keep-awakectl pause` allow sleep INSTANTLY without a password, by
+# permitting exactly one fixed command: turning the lid-sleep block OFF.
+# This is NOT passwordless root for arbitrary code — it is a single fixed
+# invocation with fixed args (pmset is root-owned), and it only *allows* sleep.
+# Resume re-engages via the daemon, so no rule is needed for the ON direction.
+jpaddison ALL=(root) NOPASSWD: /usr/bin/pmset -a disablesleep 0

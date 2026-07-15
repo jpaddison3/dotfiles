@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jpaddison.keep-awake</string>
+
+    <!-- Runs the ROOT-OWNED copy (see install-keep-awake.sh), not the
+         user-writable repo file, so this boot-time root process can't be
+         hijacked by editing keep-awake.sh. Last arg is the battery threshold. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/usr/local/sbin/keep-awake.sh</string>
+        <string>50</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Always restart: the script loops forever, and if it ever dies we want
+         a manager present so disablesleep is never left orphaned. -->
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>StandardOutPath</key>
+    <string>/var/log/keep-awake.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/keep-awake.log</string>
+</dict>
+</plist>

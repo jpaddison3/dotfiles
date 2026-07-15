@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+#
+# keep-awakectl — temporarily pause / resume the keep-awake daemon
+# (com.jpaddison.keep-awake) WITHOUT unloading it. Works by writing a sentinel
+# file that the daemon watches, so no sudo/password is needed.
+#
+# Usage:
+#   keep-awakectl pause [DURATION]   # allow sleep now; DURATION like 30s,45m,2h
+#                                    # no DURATION = until `resume` or reboot
+#   keep-awakectl resume             # re-engage keep-awake
+#   keep-awakectl status             # show current state (default)
+#
+# Takes effect within the daemon's poll interval (~10s). The sentinel lives in
+# /tmp, so a pause never survives a reboot (reboot always resumes keep-awake).
+#
+set -euo pipefail
+
+PAUSE_FILE="/tmp/keep-awake.pause"
+
+to_seconds() {  # "90m" -> 5400 ; "2h" -> 7200 ; "45" or "45s" -> 45
+  local d="$1" n="${1%[smh]}"
+  [[ "${n}" =~ ^[0-9]+$ ]] || { echo "keep-awakectl: invalid duration '${d}'" >&2; exit 2; }
+  case "${d}" in
+    *h) echo $(( n * 3600 ));;
+    *m) echo $(( n * 60 ));;
+    *)  echo $(( n ));;            # bare number or Ns
+  esac
+}
+
+human_pause() {  # echo a human-readable pause state, or nothing if not paused
+  [[ -f "${PAUSE_FILE}" ]] || return 0
+  local exp; exp="$(cat "${PAUSE_FILE}" 2>/dev/null || true)"
+  if [[ "${exp}" == "indefinite" ]]; then
+    echo "paused indefinitely (until 'keep-awakectl resume' or reboot)"
+  elif [[ "${exp}" =~ ^[0-9]+$ ]] && (( "$(date +%s)" < exp )); then
+    echo "paused until $(date -r "${exp}" '+%-I:%M %p')"
+  else
+    echo "pause expired (daemon resumes within ~10s)"
+  fi
+}
+
+case "${1:-status}" in
+  pause)
+    if [[ -n "${2:-}" ]]; then
+      secs="$(to_seconds "$2")"
+      exp=$(( $(date +%s) + secs ))
+      echo "${exp}" > "${PAUSE_FILE}"
+      until_str="until $(date -r "${exp}" '+%-I:%M %p')"
+    else
+      echo "indefinite" > "${PAUSE_FILE}"
+      until_str="until 'keep-awakectl resume' or reboot"
+    fi
+    # Flip the flag now via the scoped NOPASSWD rule so sleep is allowed
+    # immediately; the sentinel written above keeps the daemon from re-enabling.
+    if sudo -n /usr/bin/pmset -a disablesleep 0 2>/dev/null; then
+      echo "Paused — sleep allowed ${until_str} (effective now)."
+    else
+      echo "Paused — sleep allowed ${until_str} (effective within ~10s; sudoers rule not installed?)."
+    fi
+    ;;
+  resume)
+    rm -f "${PAUSE_FILE}"
+    echo "Resumed — keep-awake active again per battery threshold (~10s to take effect)."
+    ;;
+  status)
+    pmset -g | grep -i SleepDisabled | sed 's/^ */pmset:   /'
+    pmset -g batt | grep -Eo '[0-9]+%; [a-z ]*' | head -1 | sed 's/^/battery: /'
+    p="$(human_pause)"; echo "pause:   ${p:-none (keep-awake active)}"
+    ;;
+  *)
+    echo "usage: keep-awakectl {pause [DURATION]|resume|status}" >&2
+    exit 2
+    ;;
+esac
