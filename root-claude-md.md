@@ -14,6 +14,11 @@ I live in Cambridge, Massachusetts. My husband's name is Will.
 - If you write a test, run the tests locally before returning back to me.
 - Please avoid using the global python raw. `source ~/venvs/py3/bin/activate &&` for all python commands.
 - I tend to prefer new commits when making changes after a previous commit has been pushed, instead of amending.
+- Co-sign commits that you make
+
+## Taking actions on my behalf
+
+- Please have a strong default to disclose that you are an AI when writing on my behalf.
 
 ## My general communication preferences
 

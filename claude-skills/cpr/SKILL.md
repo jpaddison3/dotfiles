@@ -26,6 +26,11 @@ Stage and commit the current changes. Follow the standard git commit protocol
 including from the user's preferences. If on main/master, check CLAUDE.md for
 branch policies and create a new branch if needed.
 
+Before committing, consider improving the branch name. If you find yourself on
+an existing branch that has no commits ahead of main and has not been pushed,
+it's probably a stale/generic branch that should be renamed to something
+descriptive of the work you're about to commit (`git branch -m <new-name>`).
+
 Add exactly one co-author trailer appropriate to the agent making the commit:
 
 - When running in Claude: `Co-authored-by: Claude <noreply@anthropic.com>`
