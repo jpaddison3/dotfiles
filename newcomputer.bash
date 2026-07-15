@@ -66,6 +66,11 @@ mkdir -p ~/.local/bin
 ln -f $SCRIPTPATH/pull-granola.py ~/.local/bin/pull-granola.py
 ln -f $SCRIPTPATH/pull-granola-launchd.sh ~/.local/bin/pull-granola-launchd.sh
 
+# keep-awake is interactive-only (never launchd-invoked), so the App Management
+# sandbox wall above doesn't apply — a plain symlink is fine and, unlike the
+# hard links, survives atomic-save / `git checkout` without re-linking.
+ln -sf $SCRIPTPATH/keep-awake.sh ~/.local/bin/keep-awake
+
 # launchd agent. The plist must be a real file (or hard link) in
 # ~/Library/LaunchAgents — macOS Background Tasks Management doesn't follow
 # symlinks, so a symlinked plist is invisible to BTM, never appears in
@@ -78,6 +83,10 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jpaddison.pull-grano
 # Software installation:
 # Manual install: pure prompt (brew failed), ohmyzsh, cargo, nvm, yarn
 brew install tmux tmuxinator reattach-to-user-namespace neovim coreutils
+# Nerd Font glyphs (git branch / diagnostic icons in nvim). Symbols-only so it can
+# act as a non-ASCII fallback while a normal font (Monaco) renders text. In iTerm:
+# Profiles > Text > "Use a different font for non-ASCII text" > Symbols Nerd Font.
+brew install --cask font-symbols-only-nerd-font
 
 # Python venv for ad-hoc scripting. Homebrew python is externally-managed (PEP 668),
 # so a venv is the sane place for global-ish packages. ~/venvs/py3 is a version-proof
