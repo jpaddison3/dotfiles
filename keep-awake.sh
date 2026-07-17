@@ -5,6 +5,12 @@
 # indefinitely, flipping back and forth as the battery rises and falls
 # (e.g. re-engages once you plug in and charge back above the threshold).
 #
+# Overheat safety (on battery only): while it's keeping the Mac awake AND
+# running on battery, it also watches thermal pressure; if the machine runs hot
+# (Heavy or worse) for a couple of polls in a row, it drops the override and
+# forces an immediate sleep to cool down. On AC it never force-sleeps — macOS's
+# own throttling protects the hardware and interrupting a job isn't worth it.
+#
 # Usage:
 #   keep-awake [THRESHOLD]        # Ctrl-C to stop
 #
@@ -21,6 +27,7 @@
 #     alone only blocks idle sleep. The script re-execs itself with sudo, so
 #     you get ONE password prompt at launch and everything afterward runs in
 #     that single root process — no later re-prompts.
+#   - Reading thermal pressure uses `powermetrics`, which also needs that root.
 #   - Don't add this script to a sudoers NOPASSWD rule: it's user-writable, so
 #     that's passwordless root for arbitrary code. For an unattended launch,
 #     run it as a root LaunchDaemon instead (runs as root, no password needed).
@@ -36,6 +43,15 @@ THRESHOLD="${1:-50}"
 POLL_SECONDS=10
 PAUSE_FILE="/tmp/keep-awake.pause"   # present + unexpired = temporarily allow sleep
 
+# Overheat safety knobs (see the loop below).
+TRIGGER_LEVEL="Heavy"   # force sleep at this thermal pressure or worse:
+                        #   Nominal < Moderate < Heavy < Trapping < Sleeping
+THERMAL_DEBOUNCE=2      # consecutive elevated reads required before forcing sleep
+COOLDOWN_SECONDS=300    # after a forced sleep, the overheat trigger can't fire
+                        # again for this long (measured from wake) — anti-loop
+                        # safety, so a still-warm Mac can't keep sleeping itself
+                        # the moment you try to wake it
+
 # Re-exec as root so the single sudo prompt happens now, at launch.
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Re-running with sudo (needed to override lid-closed sleep)…"
@@ -50,6 +66,32 @@ battery_pct() {
 
 set_sleep() {  # $1: 1 = disable sleep (stay awake), 0 = allow normal sleep
   pmset -a disablesleep "$1"
+}
+
+on_battery() {  # true when running on battery rather than AC power
+  pmset -g batt | grep -q "Battery Power"
+}
+
+# Current thermal pressure level, e.g. "Nominal"/"Heavy"; empty if unreadable.
+# There's no reliable raw-temperature path on Apple Silicon (the `smc`
+# powermetrics sampler is Intel-only), so we key off the OS's own thermal
+# *pressure* level instead.
+thermal_level() {
+  powermetrics -n 1 -i 200 --samplers thermal 2>/dev/null \
+    | awk -F': ' '/Current pressure level/{print $2; exit}'
+}
+
+# Order the pressure levels for comparison; unknown/empty → 0, so an unreadable
+# sample can never trigger a force-sleep.
+thermal_rank() {
+  case "$1" in
+    Nominal)  echo 0 ;;
+    Moderate) echo 1 ;;
+    Heavy)    echo 2 ;;
+    Trapping) echo 3 ;;
+    Sleeping) echo 4 ;;
+    *)        echo 0 ;;
+  esac
 }
 
 # A temporary pause is in effect if PAUSE_FILE exists and hasn't expired. Its
@@ -80,6 +122,9 @@ current_disablesleep() { pmset -g | awk '/SleepDisabled/{print $2; exit}'; }
 echo "Watching battery: stay awake (lid open or shut) while ≥ ${THRESHOLD}%, allow sleep below. Ctrl-C to stop."
 
 last_logged=""   # log only when the decision changes, not every tick
+hot_count=0                                    # consecutive hot reads (overheat safety)
+cooldown_until=0                               # epoch until the trigger can fire again
+trigger_rank="$(thermal_rank "${TRIGGER_LEVEL}")"
 while true; do
   # Decide the desired state: a temporary pause (see keep-awakectl) wins,
   # otherwise it's driven by the battery threshold.
@@ -99,6 +144,34 @@ while true; do
     else
       desired=0; reason="battery ${pct}% (< ${THRESHOLD}%): allowing sleep"
     fi
+  fi
+
+  # Overheat safety: only while we're keeping the Mac awake (desired=1) AND on
+  # battery — that's the case worth interrupting for (e.g. lid shut in a bag, no
+  # power). On AC we leave heat to macOS's own thermal throttling. If it's
+  # running hot, stop feeding the fire — drop the override and force sleep. The
+  # debounce keeps a momentary spike from slamming it shut; the cooldown caps
+  # this to once per COOLDOWN_SECONDS so a still-warm Mac can't keep sleeping
+  # itself the moment you wake it.
+  if (( desired == 1 )) && on_battery && (( "$(date +%s)" >= cooldown_until )); then
+    level="$(thermal_level)"
+    if (( "$(thermal_rank "${level:-}")" >= trigger_rank )); then
+      hot_count=$(( hot_count + 1 ))
+    else
+      hot_count=0
+    fi
+    if (( hot_count >= THERMAL_DEBOUNCE )); then
+      echo "$(date '+%-I:%M%p') — thermal ${level} (x${hot_count}): forcing sleep to cool down"
+      hot_count=0
+      set_sleep 0                # must drop the override first, or sleepnow is ignored
+      pmset sleepnow || true
+      sleep 3                    # let it actually go down and come back
+      cooldown_until=$(( "$(date +%s)" + COOLDOWN_SECONDS ))   # measured from wake
+      last_logged=""             # force a fresh state log next tick
+      continue
+    fi
+  else
+    hot_count=0
   fi
 
   # Apply only when the OS isn't already there (this also repairs any external
