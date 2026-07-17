@@ -46,6 +46,7 @@ ln -sf $SCRIPTPATH/claude-skills/review-codex ~/.claude/skills/review-codex
 ln -sf $SCRIPTPATH/claude-skills/review-claude ~/.claude/skills/review-claude
 ln -sf $SCRIPTPATH/claude-skills/review-multi ~/.claude/skills/review-multi
 ln -sf $SCRIPTPATH/claude-skills/rpr ~/.claude/skills/rpr
+ln -sf $SCRIPTPATH/statusline-command.sh ~/.claude/statusline-command.sh
 
 # codex-shim: mirror Claude Code's /fast onto Codex's service_tier. The shim must be
 # the first non-superconductor `codex` on PATH; zshrc.zsh slots ~/.local/codex-shim
