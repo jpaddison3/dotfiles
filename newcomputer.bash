@@ -26,6 +26,8 @@ ln -sf $SCRIPTPATH/nvim ~/.config/nvim
 
 # Other
 ln -sf $SCRIPTPATH/dotgithelpers.bash ~/.githelpers
+mkdir -p ~/.config/git
+ln -sf $SCRIPTPATH/gitignore-global ~/.config/git/ignore
 # You'll need to copy the git config yourself to edit your email in
 
 # Passwordless sudo for my user. Drop-in (not /etc/sudoers directly) so a bad edit
