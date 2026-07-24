@@ -41,8 +41,15 @@ install -o root -g wheel -m 644 "$PLIST_SRC" "$PLIST_DEST"
 visudo -cf "$SUDOERS_SRC" >/dev/null
 install -o root -g wheel -m 440 "$SUDOERS_SRC" "$SUDOERS_DEST"
 
-# Reload cleanly if already present, then bootstrap + enable.
+# Reload cleanly if already present, then bootstrap + enable. bootout is
+# asynchronous: wait for the old instance to fully disappear before we
+# bootstrap, otherwise bootstrap races the teardown and fails with
+# "Bootstrap failed: 5: Input/output error", leaving the daemon stopped.
 launchctl bootout "system/${LABEL}" 2>/dev/null || true
+for _ in {1..50}; do
+  launchctl print "system/${LABEL}" >/dev/null 2>&1 || break
+  sleep 0.1
+done
 launchctl bootstrap system "$PLIST_DEST"
 launchctl enable "system/${LABEL}"
 
