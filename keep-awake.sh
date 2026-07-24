@@ -5,12 +5,14 @@
 # indefinitely, flipping back and forth as the battery rises and falls
 # (e.g. re-engages once you plug in and charge back above the threshold).
 #
-# Overheat safety (on battery, lid shut): while it's keeping the Mac awake AND
-# running on battery AND the lid is closed, it also watches thermal pressure; if
-# the machine runs hot (Heavy or worse) for a couple of polls in a row, it drops
-# the override and forces an immediate sleep to cool down. On AC, or with the lid
-# open, it never force-sleeps — macOS's own throttling protects the hardware and
-# it won't interrupt a job or sleep the Mac out from under an active user.
+# Overheat safety (on battery, lid shut, unattended): while it's keeping the Mac
+# awake AND on battery AND the lid is closed AND there's been no recent input, it
+# also watches thermal pressure; if the machine runs hot (Heavy or worse) for a
+# couple of polls in a row, it drops the override and forces an immediate sleep
+# to cool down. On AC, with the lid open, or while you're actively using it, it
+# never force-sleeps — macOS's own throttling protects the hardware and it won't
+# sleep the Mac out from under an active user (incl. a docked-but-unplugged
+# machine used in clamshell with an external keyboard).
 #
 # Usage:
 #   keep-awake [THRESHOLD]        # Ctrl-C to stop
@@ -52,6 +54,11 @@ COOLDOWN_SECONDS=300    # after a forced sleep, the overheat trigger can't fire
                         # again for this long (measured from wake) — anti-loop
                         # safety, so a still-warm Mac can't keep sleeping itself
                         # the moment you try to wake it
+IDLE_SECONDS=60         # require no keyboard/trackpad input for this long before
+                        # force-sleeping, so a docked-but-unplugged Mac used in
+                        # clamshell isn't slept while you're typing on an external
+                        # keyboard. A bagged Mac idles past this within a minute
+                        # anyway, so it doesn't delay the real case.
 
 # Re-exec as root so the single sudo prompt happens now, at launch.
 if [[ "${EUID}" -ne 0 ]]; then
@@ -78,6 +85,20 @@ lid_closed() {  # true when the lid is shut (clamshell) — the "in a bag" case.
   # which reads as "not closed", so an ambiguous state never forces sleep. It's
   # only consulted inside an `if` test, so that non-zero can't trip `set -e`.
   ioreg -r -k AppleClamshellState | grep -q '"AppleClamshellState" = Yes'
+}
+
+# Seconds since the last keyboard/trackpad input (HIDIdleTime is nanoseconds);
+# empty if unreadable → callers default it to 0 ("active"), so a bad read never
+# forces sleep. `|| true`: ioreg's output is large and awk's `exit` SIGPIPEs it,
+# which under pipefail would otherwise surface as a non-zero pipeline.
+idle_seconds() {
+  ioreg -c IOHIDSystem 2>/dev/null \
+    | awk '/HIDIdleTime/{printf "%d", $NF/1000000000; exit}' || true
+}
+
+user_idle() {  # true when there's been no input for at least IDLE_SECONDS
+  local idle; idle="$(idle_seconds)"
+  (( "${idle:-0}" >= IDLE_SECONDS ))
 }
 
 # Current thermal pressure level, e.g. "Nominal"/"Heavy"; empty if unreadable.
@@ -159,15 +180,15 @@ while true; do
   fi
 
   # Overheat safety: only while we're keeping the Mac awake (desired=1), on
-  # battery, AND with the lid shut — that's the case worth interrupting for (lid
-  # shut in a bag, no power, no airflow). With the lid open we never force-sleep:
-  # the user can see/feel the heat and act, macOS throttling protects the
-  # hardware, and we must not yank the machine to sleep out from under someone
-  # actively working. If it's running hot, stop feeding the fire — drop the
-  # override and force sleep. The debounce keeps a momentary spike from slamming
-  # it shut; the cooldown caps this to once per COOLDOWN_SECONDS so a still-warm
-  # Mac can't keep sleeping itself the moment you wake it.
-  if (( desired == 1 )) && on_battery && lid_closed && (( "$(date +%s)" >= cooldown_until )); then
+  # battery, with the lid shut, AND unattended (no recent input) — that's the
+  # case worth interrupting for (lid shut in a bag, no power, no airflow). Lid
+  # open, or any recent keypress, means someone may be using it — including a
+  # docked-but-unplugged machine in clamshell — so we never sleep it out from
+  # under them. If it's running hot, stop feeding the fire — drop the override
+  # and force sleep. The debounce keeps a momentary spike from slamming it shut;
+  # the cooldown caps this to once per COOLDOWN_SECONDS so a still-warm Mac can't
+  # keep sleeping itself the moment you wake it.
+  if (( desired == 1 )) && on_battery && lid_closed && user_idle && (( "$(date +%s)" >= cooldown_until )); then
     level="$(thermal_level)"
     if (( "$(thermal_rank "${level:-}")" >= trigger_rank )); then
       hot_count=$(( hot_count + 1 ))
