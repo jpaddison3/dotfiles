@@ -5,11 +5,12 @@
 # indefinitely, flipping back and forth as the battery rises and falls
 # (e.g. re-engages once you plug in and charge back above the threshold).
 #
-# Overheat safety (on battery only): while it's keeping the Mac awake AND
-# running on battery, it also watches thermal pressure; if the machine runs hot
-# (Heavy or worse) for a couple of polls in a row, it drops the override and
-# forces an immediate sleep to cool down. On AC it never force-sleeps — macOS's
-# own throttling protects the hardware and interrupting a job isn't worth it.
+# Overheat safety (on battery, lid shut): while it's keeping the Mac awake AND
+# running on battery AND the lid is closed, it also watches thermal pressure; if
+# the machine runs hot (Heavy or worse) for a couple of polls in a row, it drops
+# the override and forces an immediate sleep to cool down. On AC, or with the lid
+# open, it never force-sleeps — macOS's own throttling protects the hardware and
+# it won't interrupt a job or sleep the Mac out from under an active user.
 #
 # Usage:
 #   keep-awake [THRESHOLD]        # Ctrl-C to stop
@@ -72,13 +73,24 @@ on_battery() {  # true when running on battery rather than AC power
   pmset -g batt | grep -q "Battery Power"
 }
 
+lid_closed() {  # true when the lid is shut (clamshell) — the "in a bag" case.
+  # Absent key (desktop/no sensor) or an unreadable read → grep miss → non-zero,
+  # which reads as "not closed", so an ambiguous state never forces sleep. It's
+  # only consulted inside an `if` test, so that non-zero can't trip `set -e`.
+  ioreg -r -k AppleClamshellState | grep -q '"AppleClamshellState" = Yes'
+}
+
 # Current thermal pressure level, e.g. "Nominal"/"Heavy"; empty if unreadable.
 # There's no reliable raw-temperature path on Apple Silicon (the `smc`
 # powermetrics sampler is Intel-only), so we key off the OS's own thermal
 # *pressure* level instead.
 thermal_level() {
+  # `|| true`: awk's early `exit` can SIGPIPE powermetrics, and powermetrics
+  # itself can transiently fail; under `set -o pipefail` that non-zero pipeline
+  # status would otherwise kill the whole script at the `level="$(thermal_level)"`
+  # assignment below. Same guard as battery_pct.
   powermetrics -n 1 -i 200 --samplers thermal 2>/dev/null \
-    | awk -F': ' '/Current pressure level/{print $2; exit}'
+    | awk -F': ' '/Current pressure level/{print $2; exit}' || true
 }
 
 # Order the pressure levels for comparison; unknown/empty → 0, so an unreadable
@@ -146,14 +158,16 @@ while true; do
     fi
   fi
 
-  # Overheat safety: only while we're keeping the Mac awake (desired=1) AND on
-  # battery — that's the case worth interrupting for (e.g. lid shut in a bag, no
-  # power). On AC we leave heat to macOS's own thermal throttling. If it's
-  # running hot, stop feeding the fire — drop the override and force sleep. The
-  # debounce keeps a momentary spike from slamming it shut; the cooldown caps
-  # this to once per COOLDOWN_SECONDS so a still-warm Mac can't keep sleeping
-  # itself the moment you wake it.
-  if (( desired == 1 )) && on_battery && (( "$(date +%s)" >= cooldown_until )); then
+  # Overheat safety: only while we're keeping the Mac awake (desired=1), on
+  # battery, AND with the lid shut — that's the case worth interrupting for (lid
+  # shut in a bag, no power, no airflow). With the lid open we never force-sleep:
+  # the user can see/feel the heat and act, macOS throttling protects the
+  # hardware, and we must not yank the machine to sleep out from under someone
+  # actively working. If it's running hot, stop feeding the fire — drop the
+  # override and force sleep. The debounce keeps a momentary spike from slamming
+  # it shut; the cooldown caps this to once per COOLDOWN_SECONDS so a still-warm
+  # Mac can't keep sleeping itself the moment you wake it.
+  if (( desired == 1 )) && on_battery && lid_closed && (( "$(date +%s)" >= cooldown_until )); then
     level="$(thermal_level)"
     if (( "$(thermal_rank "${level:-}")" >= trigger_rank )); then
       hot_count=$(( hot_count + 1 ))
