@@ -5,6 +5,15 @@
 # indefinitely, flipping back and forth as the battery rises and falls
 # (e.g. re-engages once you plug in and charge back above the threshold).
 #
+# Overheat safety (on battery, lid shut, unattended): while it's keeping the Mac
+# awake AND on battery AND the lid is closed AND there's been no recent input, it
+# also watches thermal pressure; if the machine runs hot (Heavy or worse) for a
+# couple of polls in a row, it drops the override and forces an immediate sleep
+# to cool down. On AC, with the lid open, or while you're actively using it, it
+# never force-sleeps — macOS's own throttling protects the hardware and it won't
+# sleep the Mac out from under an active user (incl. a docked-but-unplugged
+# machine used in clamshell with an external keyboard).
+#
 # Usage:
 #   keep-awake [THRESHOLD]        # Ctrl-C to stop
 #
@@ -21,6 +30,7 @@
 #     alone only blocks idle sleep. The script re-execs itself with sudo, so
 #     you get ONE password prompt at launch and everything afterward runs in
 #     that single root process — no later re-prompts.
+#   - Reading thermal pressure uses `powermetrics`, which also needs that root.
 #   - Don't add this script to a sudoers NOPASSWD rule: it's user-writable, so
 #     that's passwordless root for arbitrary code. For an unattended launch,
 #     run it as a root LaunchDaemon instead (runs as root, no password needed).
@@ -36,6 +46,20 @@ THRESHOLD="${1:-50}"
 POLL_SECONDS=10
 PAUSE_FILE="/tmp/keep-awake.pause"   # present + unexpired = temporarily allow sleep
 
+# Overheat safety knobs (see the loop below).
+TRIGGER_LEVEL="Heavy"   # force sleep at this thermal pressure or worse:
+                        #   Nominal < Moderate < Heavy < Trapping < Sleeping
+THERMAL_DEBOUNCE=2      # consecutive elevated reads required before forcing sleep
+COOLDOWN_SECONDS=300    # after a forced sleep, the overheat trigger can't fire
+                        # again for this long (measured from wake) — anti-loop
+                        # safety, so a still-warm Mac can't keep sleeping itself
+                        # the moment you try to wake it
+IDLE_SECONDS=60         # require no keyboard/trackpad input for this long before
+                        # force-sleeping, so a docked-but-unplugged Mac used in
+                        # clamshell isn't slept while you're typing on an external
+                        # keyboard. A bagged Mac idles past this within a minute
+                        # anyway, so it doesn't delay the real case.
+
 # Re-exec as root so the single sudo prompt happens now, at launch.
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Re-running with sudo (needed to override lid-closed sleep)…"
@@ -50,6 +74,57 @@ battery_pct() {
 
 set_sleep() {  # $1: 1 = disable sleep (stay awake), 0 = allow normal sleep
   pmset -a disablesleep "$1"
+}
+
+on_battery() {  # true when running on battery rather than AC power
+  pmset -g batt | grep -q "Battery Power"
+}
+
+lid_closed() {  # true when the lid is shut (clamshell) — the "in a bag" case.
+  # Absent key (desktop/no sensor) or an unreadable read → grep miss → non-zero,
+  # which reads as "not closed", so an ambiguous state never forces sleep. It's
+  # only consulted inside an `if` test, so that non-zero can't trip `set -e`.
+  ioreg -r -k AppleClamshellState | grep -q '"AppleClamshellState" = Yes'
+}
+
+# Seconds since the last keyboard/trackpad input (HIDIdleTime is nanoseconds);
+# empty if unreadable → callers default it to 0 ("active"), so a bad read never
+# forces sleep. `|| true`: ioreg's output is large and awk's `exit` SIGPIPEs it,
+# which under pipefail would otherwise surface as a non-zero pipeline.
+idle_seconds() {
+  ioreg -c IOHIDSystem 2>/dev/null \
+    | awk '/HIDIdleTime/{printf "%d", $NF/1000000000; exit}' || true
+}
+
+user_idle() {  # true when there's been no input for at least IDLE_SECONDS
+  local idle; idle="$(idle_seconds)"
+  (( "${idle:-0}" >= IDLE_SECONDS ))
+}
+
+# Current thermal pressure level, e.g. "Nominal"/"Heavy"; empty if unreadable.
+# There's no reliable raw-temperature path on Apple Silicon (the `smc`
+# powermetrics sampler is Intel-only), so we key off the OS's own thermal
+# *pressure* level instead.
+thermal_level() {
+  # `|| true`: awk's early `exit` can SIGPIPE powermetrics, and powermetrics
+  # itself can transiently fail; under `set -o pipefail` that non-zero pipeline
+  # status would otherwise kill the whole script at the `level="$(thermal_level)"`
+  # assignment below. Same guard as battery_pct.
+  powermetrics -n 1 -i 200 --samplers thermal 2>/dev/null \
+    | awk -F': ' '/Current pressure level/{print $2; exit}' || true
+}
+
+# Order the pressure levels for comparison; unknown/empty → 0, so an unreadable
+# sample can never trigger a force-sleep.
+thermal_rank() {
+  case "$1" in
+    Nominal)  echo 0 ;;
+    Moderate) echo 1 ;;
+    Heavy)    echo 2 ;;
+    Trapping) echo 3 ;;
+    Sleeping) echo 4 ;;
+    *)        echo 0 ;;
+  esac
 }
 
 # A temporary pause is in effect if PAUSE_FILE exists and hasn't expired. Its
@@ -80,6 +155,9 @@ current_disablesleep() { pmset -g | awk '/SleepDisabled/{print $2; exit}'; }
 echo "Watching battery: stay awake (lid open or shut) while ≥ ${THRESHOLD}%, allow sleep below. Ctrl-C to stop."
 
 last_logged=""   # log only when the decision changes, not every tick
+hot_count=0                                    # consecutive hot reads (overheat safety)
+cooldown_until=0                               # epoch until the trigger can fire again
+trigger_rank="$(thermal_rank "${TRIGGER_LEVEL}")"
 while true; do
   # Decide the desired state: a temporary pause (see keep-awakectl) wins,
   # otherwise it's driven by the battery threshold.
@@ -99,6 +177,50 @@ while true; do
     else
       desired=0; reason="battery ${pct}% (< ${THRESHOLD}%): allowing sleep"
     fi
+  fi
+
+  # Overheat safety: only while we're keeping the Mac awake (desired=1), on
+  # battery, with the lid shut, AND unattended (no recent input) — that's the
+  # case worth interrupting for (lid shut in a bag, no power, no airflow). Lid
+  # open, or any recent keypress, means someone may be using it — including a
+  # docked-but-unplugged machine in clamshell — so we never sleep it out from
+  # under them. If it's running hot, stop feeding the fire — drop the override
+  # and force sleep. The debounce keeps a momentary spike from slamming it shut;
+  # the cooldown caps this to once per COOLDOWN_SECONDS so a still-warm Mac can't
+  # keep sleeping itself the moment you wake it.
+  if (( desired == 1 )) && on_battery && lid_closed && user_idle && (( "$(date +%s)" >= cooldown_until )); then
+    level="$(thermal_level)"
+    if (( "$(thermal_rank "${level:-}")" >= trigger_rank )); then
+      hot_count=$(( hot_count + 1 ))
+    else
+      hot_count=0
+    fi
+    if (( hot_count >= THERMAL_DEBOUNCE )); then
+      echo "$(date '+%-I:%M%p') — thermal ${level} (x${hot_count}): forcing sleep to cool down"
+      hot_count=0
+      set_sleep 0                # must drop the override first, or sleepnow is ignored
+      pmset sleepnow || true
+
+      # Wait for the real suspend+wake before starting the cooldown, so it's
+      # measured from WAKE rather than now. Sleep isn't instant: if it lags past
+      # a fixed delay we'd start the clock too early, and a long bag-sleep would
+      # burn the whole cooldown before you reopen the lid. A genuine suspend
+      # shows up as the wall clock jumping far past the time we actually spent in
+      # this wait loop — that jump means we've woken. Bail out after ~30s in case
+      # sleep is blocked (e.g. another process holds a power assertion) so we
+      # never hang here.
+      sleep_start="$(date +%s)"; ticked=0
+      while (( ticked < 30 )); do
+        sleep 2; ticked=$(( ticked + 2 ))
+        # ≥8s of wall clock beyond what we actually slept ⇒ we were suspended.
+        if (( "$(date +%s)" - sleep_start - ticked >= 8 )); then break; fi
+      done
+      cooldown_until=$(( "$(date +%s)" + COOLDOWN_SECONDS ))   # from actual wake
+      last_logged=""             # force a fresh state log next tick
+      continue
+    fi
+  else
+    hot_count=0
   fi
 
   # Apply only when the OS isn't already there (this also repairs any external
