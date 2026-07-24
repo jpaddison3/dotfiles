@@ -200,8 +200,22 @@ while true; do
       hot_count=0
       set_sleep 0                # must drop the override first, or sleepnow is ignored
       pmset sleepnow || true
-      sleep 3                    # let it actually go down and come back
-      cooldown_until=$(( "$(date +%s)" + COOLDOWN_SECONDS ))   # measured from wake
+
+      # Wait for the real suspend+wake before starting the cooldown, so it's
+      # measured from WAKE rather than now. Sleep isn't instant: if it lags past
+      # a fixed delay we'd start the clock too early, and a long bag-sleep would
+      # burn the whole cooldown before you reopen the lid. A genuine suspend
+      # shows up as the wall clock jumping far past the time we actually spent in
+      # this wait loop — that jump means we've woken. Bail out after ~30s in case
+      # sleep is blocked (e.g. another process holds a power assertion) so we
+      # never hang here.
+      sleep_start="$(date +%s)"; ticked=0
+      while (( ticked < 30 )); do
+        sleep 2; ticked=$(( ticked + 2 ))
+        # ≥8s of wall clock beyond what we actually slept ⇒ we were suspended.
+        if (( "$(date +%s)" - sleep_start - ticked >= 8 )); then break; fi
+      done
+      cooldown_until=$(( "$(date +%s)" + COOLDOWN_SECONDS ))   # from actual wake
       last_logged=""             # force a fresh state log next tick
       continue
     fi
