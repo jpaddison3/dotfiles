@@ -3,19 +3,22 @@
 
 # Deduplicate PATH entries
 dedupe_path() {
-    local path_array=()
-    local IFS=':'
-    local seen=""
+  local path_array=()
+  local IFS=':'
+  local seen=""
 
-    for dir in $PATH; do
-        if [[ ":$seen:" != *":$dir:"* ]]; then
-            path_array+=("$dir")
-            seen="$seen:$dir"
-        fi
-    done
+  for dir in $PATH; do
+    if [[ ":$seen:" != *":$dir:"* ]]; then
+      path_array+=("$dir")
+      seen="$seen:$dir"
+    fi
+  done
 
-    PATH=$(IFS=':'; echo "${path_array[*]}")
-    export PATH
+  PATH=$(
+    IFS=':'
+    echo "${path_array[*]}"
+  )
+  export PATH
 }
 
 # Log my commands for use later
@@ -30,13 +33,13 @@ alias flushdnscache='sudo killall -HUP mDNSResponder && echo "DNS caches flushed
 # Homebrew
 export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
 export HOMEBREW_NO_AUTO_UPDATE="1"
-export HOMEBREW_PREFIX="/opt/homebrew";
-export HOMEBREW_CELLAR="/opt/homebrew/Cellar";
-export HOMEBREW_REPOSITORY="/opt/homebrew";
-export HOMEBREW_SHELLENV_PREFIX="/opt/homebrew";
-export PATH="/opt/homebrew/bin:/opt/homebrew/sbin${PATH+:$PATH}";
-export MANPATH="/opt/homebrew/share/man${MANPATH+:$MANPATH}:";
-export INFOPATH="/opt/homebrew/share/info:${INFOPATH:-}";
+export HOMEBREW_PREFIX="/opt/homebrew"
+export HOMEBREW_CELLAR="/opt/homebrew/Cellar"
+export HOMEBREW_REPOSITORY="/opt/homebrew"
+export HOMEBREW_SHELLENV_PREFIX="/opt/homebrew"
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin${PATH+:$PATH}"
+export MANPATH="/opt/homebrew/share/man${MANPATH+:$MANPATH}:"
+export INFOPATH="/opt/homebrew/share/info:${INFOPATH:-}"
 
 # Go Language
 export GOPATH=$HOME/.go
@@ -52,11 +55,16 @@ export PATH="/opt/homebrew/opt/postgresql@14/bin:$PATH"
 alias timeout=gtimeout
 
 # Perl
-PATH="/Users/jpaddison/perl5/bin${PATH:+:${PATH}}"; export PATH;
-PERL5LIB="/Users/jpaddison/perl5/lib/perl5${PERL5LIB:+:${PERL5LIB}}"; export PERL5LIB;
-PERL_LOCAL_LIB_ROOT="/Users/jpaddison/perl5${PERL_LOCAL_LIB_ROOT:+:${PERL_LOCAL_LIB_ROOT}}"; export PERL_LOCAL_LIB_ROOT;
-PERL_MB_OPT="--install_base \"/Users/jpaddison/perl5\""; export PERL_MB_OPT;
-PERL_MM_OPT="INSTALL_BASE=/Users/jpaddison/perl5"; export PERL_MM_OPT;
+PATH="/Users/jpaddison/perl5/bin${PATH:+:${PATH}}"
+export PATH
+PERL5LIB="/Users/jpaddison/perl5/lib/perl5${PERL5LIB:+:${PERL5LIB}}"
+export PERL5LIB
+PERL_LOCAL_LIB_ROOT="/Users/jpaddison/perl5${PERL_LOCAL_LIB_ROOT:+:${PERL_LOCAL_LIB_ROOT}}"
+export PERL_LOCAL_LIB_ROOT
+PERL_MB_OPT="--install_base \"/Users/jpaddison/perl5\""
+export PERL_MB_OPT
+PERL_MM_OPT="INSTALL_BASE=/Users/jpaddison/perl5"
+export PERL_MM_OPT
 
 ## git
 alias gitstashstaged="$HOME/Documents/dotfiles/git_stash_staged.bash"
@@ -71,6 +79,12 @@ export VISUAL='nvim'
 # Claude Code: settings.json caps `effortLevel` at `xhigh` (silently downgrades `max`).
 # Forcing `max` here overrode per-session ultracode, so it's disabled to let ultracode take over.
 # export CLAUDE_CODE_EFFORT_LEVEL=max
+
+# Prisma 7+ hard-blocks `prisma migrate` from AI-agent shells (CLAUDECODE,
+# CODEX_SANDBOX, CURSOR_AGENT, ...) behind a consent prompt. Standing consent:
+# my agents may run migrations; real-database safety comes from per-repo guards
+# (e.g. minerva's assertE2eDatabaseUrl), not this blanket gate.
+export PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION="Fuck that shit"
 
 # Tmux
 alias mux="tmuxinator"
