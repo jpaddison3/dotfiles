@@ -44,6 +44,10 @@ export INFOPATH="/opt/homebrew/share/info:${INFOPATH:-}"
 # Go Language
 export GOPATH=$HOME/.go
 export PATH=$PATH:$GOPATH/bin
+# Force Go binaries (gh especially) to resolve DNS via the OS instead of Go's
+# built-in resolver, which bypasses Tailscale MagicDNS and fails on names like
+# api.github.com — often surfacing as bogus "token invalid" errors.
+export GODEBUG=netdns=cgo
 
 # Python — py3 is a version-proof symlink (~/venvs/py3 -> py314); see py-requirements.txt
 alias py3='. ~/venvs/py3/bin/activate'
