@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 #
 # keep-awake.sh — Keep this Mac awake (even with the lid shut) while the
-# battery is at/above a threshold; allow normal sleep below it. Runs
-# indefinitely, flipping back and forth as the battery rises and falls
-# (e.g. re-engages once you plug in and charge back above the threshold).
+# battery is at/above a threshold. Below it, allow normal sleep and force sleep
+# after a long period without keyboard/trackpad input, even if another process
+# (such as Claude Code) is inhibiting idle sleep. Runs indefinitely, flipping
+# back and forth as the battery rises and falls.
 #
 # Overheat safety (on battery, lid shut, unattended): while it's keeping the Mac
 # awake AND on battery AND the lid is closed AND there's been no recent input, it
@@ -44,6 +45,7 @@ set -euo pipefail
 
 THRESHOLD="${1:-50}"
 POLL_SECONDS=10
+DIAGNOSTIC_INTERVAL_SECONDS=300  # periodic safety snapshot; avoids 10s log spam
 PAUSE_FILE="/tmp/keep-awake.pause"   # present + unexpired = temporarily allow sleep
 
 # Overheat safety knobs (see the loop below).
@@ -59,6 +61,11 @@ IDLE_SECONDS=60         # require no keyboard/trackpad input for this long befor
                         # clamshell isn't slept while you're typing on an external
                         # keyboard. A bagged Mac idles past this within a minute
                         # anyway, so it doesn't delay the real case.
+LOW_BATTERY_IDLE_SECONDS=1800  # below the battery threshold, force sleep after
+                               # 30 minutes without keyboard/trackpad input.
+                               # This deliberately overrides app-level idle
+                               # inhibitors, but leaves ample time for short
+                               # unattended jobs and normal breaks.
 
 # Re-exec as root so the single sudo prompt happens now, at launch.
 if [[ "${EUID}" -ne 0 ]]; then
@@ -72,19 +79,31 @@ battery_pct() {
   pmset -g batt | grep -Eom1 '[0-9]+%' | tr -d '%' || true
 }
 
+timestamp() { date '+%Y-%m-%d %-I:%M:%S%p %Z'; }
+log_message() { echo "$(timestamp) — $*"; }
+
 set_sleep() {  # $1: 1 = disable sleep (stay awake), 0 = allow normal sleep
   pmset -a disablesleep "$1"
 }
 
-on_battery() {  # true when running on battery rather than AC power
-  pmset -g batt | grep -q "Battery Power"
+power_source() {  # "battery", "ac", or "unknown"
+  local status
+  status="$(pmset -g batt 2>/dev/null || true)"
+  if [[ "${status}" == *"Battery Power"* ]]; then
+    echo "battery"
+  elif [[ "${status}" == *"AC Power"* ]]; then
+    echo "ac"
+  else
+    echo "unknown"
+  fi
 }
 
-lid_closed() {  # true when the lid is shut (clamshell) — the "in a bag" case.
-  # Absent key (desktop/no sensor) or an unreadable read → grep miss → non-zero,
-  # which reads as "not closed", so an ambiguous state never forces sleep. It's
-  # only consulted inside an `if` test, so that non-zero can't trip `set -e`.
-  ioreg -r -k AppleClamshellState | grep -q '"AppleClamshellState" = Yes'
+lid_state() {  # "closed", "open", or "unknown"
+  local state
+  state="$(ioreg -r -k AppleClamshellState 2>/dev/null \
+    | awk '/"AppleClamshellState" = Yes/{found="closed"} /"AppleClamshellState" = No/{found="open"} END{print found}' \
+    || true)"
+  echo "${state:-unknown}"
 }
 
 # Seconds since the last keyboard/trackpad input (HIDIdleTime is nanoseconds);
@@ -94,11 +113,6 @@ lid_closed() {  # true when the lid is shut (clamshell) — the "in a bag" case.
 idle_seconds() {
   ioreg -c IOHIDSystem 2>/dev/null \
     | awk '/HIDIdleTime/{printf "%d", $NF/1000000000; exit}' || true
-}
-
-user_idle() {  # true when there's been no input for at least IDLE_SECONDS
-  local idle; idle="$(idle_seconds)"
-  (( "${idle:-0}" >= IDLE_SECONDS ))
 }
 
 # Current thermal pressure level, e.g. "Nominal"/"Heavy"; empty if unreadable.
@@ -140,9 +154,9 @@ pause_active() {
 
 cleanup() {
   echo
-  echo "Exiting — restoring normal sleep behavior…"
+  log_message "Exiting — restoring normal sleep behavior…"
   pmset -a disablesleep 0 || true
-  echo "Done — the Mac can sleep normally again."
+  log_message "Done — the Mac can sleep normally again."
 }
 trap cleanup EXIT INT TERM
 
@@ -152,31 +166,74 @@ trap cleanup EXIT INT TERM
 # instant effect — self-correct on the next pass instead of drifting.
 current_disablesleep() { pmset -g | awk '/SleepDisabled/{print $2; exit}'; }
 
+force_sleep_and_start_cooldown() {
+  set_sleep 0                # must drop the override first, or sleepnow is ignored
+  pmset sleepnow || true
+
+  # Wait for the real suspend+wake before starting the cooldown, so opening the
+  # lid cannot immediately trigger another forced sleep before the first input.
+  # A genuine suspend shows up as the wall clock jumping beyond the time spent
+  # in this loop. Bail out after ~30s if another assertion blocks the sleep.
+  local sleep_start ticked
+  sleep_start="$(date +%s)"; ticked=0
+  while (( ticked < 30 )); do
+    sleep 2; ticked=$(( ticked + 2 ))
+    # ≥8s of wall clock beyond what we actually slept ⇒ we were suspended.
+    if (( "$(date +%s)" - sleep_start - ticked >= 8 )); then break; fi
+  done
+  cooldown_until=$(( "$(date +%s)" + COOLDOWN_SECONDS ))
+  last_logged=""
+}
+
 echo "Watching battery: stay awake (lid open or shut) while ≥ ${THRESHOLD}%, allow sleep below. Ctrl-C to stop."
 
 last_logged=""   # log only when the decision changes, not every tick
+last_diagnostic_at=0                           # periodic full safety snapshot
 hot_count=0                                    # consecutive hot reads (overheat safety)
 cooldown_until=0                               # epoch until the trigger can fire again
 trigger_rank="$(thermal_rank "${TRIGGER_LEVEL}")"
 while true; do
+  now="$(date +%s)"
+  pct="$(battery_pct)"
+  source="$(power_source)"
+  lid="$(lid_state)"
+  idle="$(idle_seconds)"
+
+  if [[ -z "${pct}" ]]; then
+    log_message "couldn't read battery; retrying"
+    sleep "${POLL_SECONDS}"
+    continue
+  fi
+
   # Decide the desired state: a temporary pause (see keep-awakectl) wins,
   # otherwise it's driven by the battery threshold.
+  below_threshold=0
   if pause_active; then
     desired=0; reason="paused: allowing sleep"
   else
     if [[ -f "${PAUSE_FILE}" ]]; then
       rm -f "${PAUSE_FILE}" 2>/dev/null || true   # expired/malformed — clear it
     fi
-    pct="$(battery_pct)"
-    if [[ -z "${pct}" ]]; then
-      echo "$(date '+%-I:%M%p') — couldn't read battery; retrying."
-      sleep "${POLL_SECONDS}"
-      continue
-    elif (( pct >= THRESHOLD )); then
+    if (( pct >= THRESHOLD )); then
       desired=1; reason="battery ${pct}% (≥ ${THRESHOLD}%): keeping awake"
     else
-      desired=0; reason="battery ${pct}% (< ${THRESHOLD}%): allowing sleep"
+      desired=0; below_threshold=1
+      reason="battery ${pct}% (< ${THRESHOLD}%): allowing sleep"
     fi
+  fi
+
+  # Once the battery is below the threshold, don't let an app-level idle
+  # inhibitor keep an unattended Mac running indefinitely. HIDIdleTime measures
+  # actual keyboard/trackpad inactivity, independent of caffeinate assertions.
+  # This applies with the lid either open or closed: an open Mac forgotten
+  # overnight should not drain merely because an agent is still marked busy.
+  if (( below_threshold == 1 )) && [[ "${source}" == "battery" ]] \
+    && [[ "${idle}" =~ ^[0-9]+$ ]] \
+    && (( idle >= LOW_BATTERY_IDLE_SECONDS )) \
+    && (( now >= cooldown_until )); then
+    log_message "battery ${pct}%, no user input for 30m: forcing sleep"
+    force_sleep_and_start_cooldown
+    continue
   fi
 
   # Overheat safety: only while we're keeping the Mac awake (desired=1), on
@@ -188,38 +245,37 @@ while true; do
   # and force sleep. The debounce keeps a momentary spike from slamming it shut;
   # the cooldown caps this to once per COOLDOWN_SECONDS so a still-warm Mac can't
   # keep sleeping itself the moment you wake it.
-  if (( desired == 1 )) && on_battery && lid_closed && user_idle && (( "$(date +%s)" >= cooldown_until )); then
+  level="not-sampled"
+  thermal_check="skipped"
+  if (( desired != 1 )); then
+    thermal_check="skipped:not-keeping-awake"
+  elif [[ "${source}" != "battery" ]]; then
+    thermal_check="skipped:power-${source}"
+  elif [[ "${lid}" != "closed" ]]; then
+    thermal_check="skipped:lid-${lid}"
+  elif [[ ! "${idle}" =~ ^[0-9]+$ ]]; then
+    thermal_check="skipped:idle-unknown"
+  elif (( idle < IDLE_SECONDS )); then
+    thermal_check="skipped:recent-input"
+  elif (( now < cooldown_until )); then
+    thermal_check="skipped:cooldown"
+  else
+    thermal_check="sampled"
     level="$(thermal_level)"
+    [[ -n "${level}" ]] || level="unreadable"
     if (( "$(thermal_rank "${level:-}")" >= trigger_rank )); then
       hot_count=$(( hot_count + 1 ))
     else
       hot_count=0
     fi
     if (( hot_count >= THERMAL_DEBOUNCE )); then
-      echo "$(date '+%-I:%M%p') — thermal ${level} (x${hot_count}): forcing sleep to cool down"
+      log_message "thermal ${level} (x${hot_count}): forcing sleep to cool down"
       hot_count=0
-      set_sleep 0                # must drop the override first, or sleepnow is ignored
-      pmset sleepnow || true
-
-      # Wait for the real suspend+wake before starting the cooldown, so it's
-      # measured from WAKE rather than now. Sleep isn't instant: if it lags past
-      # a fixed delay we'd start the clock too early, and a long bag-sleep would
-      # burn the whole cooldown before you reopen the lid. A genuine suspend
-      # shows up as the wall clock jumping far past the time we actually spent in
-      # this wait loop — that jump means we've woken. Bail out after ~30s in case
-      # sleep is blocked (e.g. another process holds a power assertion) so we
-      # never hang here.
-      sleep_start="$(date +%s)"; ticked=0
-      while (( ticked < 30 )); do
-        sleep 2; ticked=$(( ticked + 2 ))
-        # ≥8s of wall clock beyond what we actually slept ⇒ we were suspended.
-        if (( "$(date +%s)" - sleep_start - ticked >= 8 )); then break; fi
-      done
-      cooldown_until=$(( "$(date +%s)" + COOLDOWN_SECONDS ))   # from actual wake
-      last_logged=""             # force a fresh state log next tick
+      force_sleep_and_start_cooldown
       continue
     fi
-  else
+  fi
+  if [[ "${thermal_check}" != "sampled" ]]; then
     hot_count=0
   fi
 
@@ -227,9 +283,17 @@ while true; do
   # change made behind our back, e.g. by keep-awakectl's instant pause).
   [[ "$(current_disablesleep)" == "${desired}" ]] || set_sleep "${desired}"
 
+  state_changed=0
   if [[ "${reason}" != "${last_logged}" ]]; then
-    echo "$(date '+%-I:%M%p') — ${reason}"
+    log_message "${reason}"
     last_logged="${reason}"
+    state_changed=1
+  fi
+
+  if (( state_changed == 1 || now - last_diagnostic_at >= DIAGNOSTIC_INTERVAL_SECONDS )); then
+    idle_display="${idle:-unknown}"
+    log_message "diagnostics: battery=${pct}%; power=${source}; lid=${lid}; idle=${idle_display}s; thermal=${level}; thermal_check=${thermal_check}; hot_count=${hot_count}/${THERMAL_DEBOUNCE}; desired_disablesleep=${desired}; actual_disablesleep=$(current_disablesleep)"
+    last_diagnostic_at="${now}"
   fi
 
   sleep "${POLL_SECONDS}"
