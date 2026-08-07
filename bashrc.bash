@@ -102,6 +102,14 @@ alias mux-dev-claude3='TMUX_SESSION=claude3 MINERVA_DIR=minerva-claude3 MINERVA_
 # JS
 export PATH="$HOME/.yarn/bin:$PATH"
 
+# pnpm
+export PNPM_HOME="$HOME/Library/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME/bin:"*) ;;
+  *) export PATH="$PNPM_HOME/bin:$PATH" ;;
+esac
+# pnpm end
+
 # Docker
 export PATH="$PATH:/Applications/Docker.app/Contents/Resources/bin"
 
