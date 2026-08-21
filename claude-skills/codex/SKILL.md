@@ -10,8 +10,7 @@ allowed-tools:
 
 Whenever you invoke `codex` from Bash, follow these rules. They are not
 review-specific — they apply to any `codex exec`, `codex review`, or other
-non-interactive call. Call `codex` straight off PATH — there is no wrapper to
-route around.
+non-interactive call.
 
 ## 1. For anything nontrivial, capture output with `-o` and read the file
 
