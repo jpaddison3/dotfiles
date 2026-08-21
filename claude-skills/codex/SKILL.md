@@ -1,6 +1,6 @@
 ---
 name: codex
-description: How to invoke the Codex CLI (`codex`) from the shell. Read this BEFORE shelling out to `codex` for any nontrivial task — it covers calling the real binary (not the Superconductor wrapper, which hangs) and capturing output with `-o` so the answer doesn't get buried in the agent-session stream.
+description: How to invoke the Codex CLI (`codex`) from the shell. Read this BEFORE shelling out to `codex` for any nontrivial task — it covers capturing output with `-o` so the answer doesn't get buried in the agent-session stream, and piping the prompt via stdin.
 allowed-tools:
   - Bash
   - Read
@@ -8,33 +8,19 @@ allowed-tools:
 
 # Calling Codex from the shell
 
-Whenever you invoke `codex` from Bash, follow these two rules. They are not
+Whenever you invoke `codex` from Bash, follow these rules. They are not
 review-specific — they apply to any `codex exec`, `codex review`, or other
-non-interactive call.
+non-interactive call. Call `codex` straight off PATH — there is no wrapper to
+route around.
 
-## 1. Call the real binary, not the Superconductor wrapper
-
-Superconductor installs a wrapper at `~/.superconductor/bin/codex` (first on
-PATH) that injects its own MCP server via `-c` config overrides. That MCP
-handshake can hang `codex` indefinitely when run non-interactively from inside a
-Superconductor-managed session. Resolve and call the real binary:
-
-```bash
-CODEX_BIN="$(which -a codex | grep -v '/.superconductor/' | head -n1)"
-```
-
-Bash state does **not** persist between tool calls, so re-resolve `$CODEX_BIN`
-each call (or substitute the absolute path, e.g.
-`~/.nvm/versions/node/v22.16.0/bin/codex`, into later commands).
-
-## 2. For anything nontrivial, capture output with `-o` and read the file
+## 1. For anything nontrivial, capture output with `-o` and read the file
 
 When Codex actually thinks for a while, **don't read its answer from stdout** —
 add `-o <file>` and read that file instead:
 
 ```bash
 CODEX_OUT="$(mktemp)"
-"$CODEX_BIN" exec -o "$CODEX_OUT" "your prompt"   # or: "$CODEX_BIN" review --uncommitted -o "$CODEX_OUT"
+codex exec -o "$CODEX_OUT" "your prompt"   # or: codex review --uncommitted -o "$CODEX_OUT"
 # then Read "$CODEX_OUT"
 ```
 
@@ -53,14 +39,14 @@ A non-empty `$CODEX_OUT` is the answer; an empty/absent file is the only true
 Skip `-o` only for genuinely trivial one-shots where you expect a couple of
 lines and no tool use (e.g. `codex --version`).
 
-## Piping a prompt in
+## 2. Pipe the prompt in via stdin
 
 For `codex exec`, pass long or special-character-laden prompts via **stdin**, not
 argv — interpolating into the argv breaks on quotes/backticks and can blow
 `ARG_MAX`:
 
 ```bash
-"$CODEX_BIN" exec -o "$CODEX_OUT" - <<'EOF'
+codex exec -o "$CODEX_OUT" - <<'EOF'
 <your prompt here>
 EOF
 ```

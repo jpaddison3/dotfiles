@@ -54,20 +54,12 @@ For the first, please ask for a general review, and then the "follow-up" can be 
 
 ### Claude runtime
 
-Do **not** invoke bare `codex`. Superconductor installs a wrapper at `~/.superconductor/bin/codex` (first on PATH) that injects its own MCP server via `-c` config overrides. That MCP handshake can hang `codex review` indefinitely when run non-interactively from inside a Superconductor-managed Claude session. Call the real binary directly:
-
-```bash
-CODEX_BIN="$(which -a codex | grep -v '/.superconductor/' | head -n1)"
-```
-
-Bash state does not persist between your tool calls, so either re-resolve `$CODEX_BIN` each call or substitute the absolute path (e.g. `~/.nvm/versions/node/v22.16.0/bin/codex`) into subsequent commands.
-
 #### Step 1: General review
 
 Run the initial review:
 
 ```bash
-"$CODEX_BIN" review [--uncommitted OR --base <branch>]
+codex review [--uncommitted OR --base <branch>]
 ```
 
 #### Step 2: Follow-up with specific criteria
@@ -77,7 +69,7 @@ Skip this step in mini mode.
 Resume the session with custom review instructions:
 
 ```bash
-"$CODEX_BIN" exec resume --last "A few things I like to double check with code that my AI coding agent has produced:
+codex exec resume --last "A few things I like to double check with code that my AI coding agent has produced:
 
 1) Types:
    a) Are there any type casts that it added. (I often find it doesn't tell me about them like I ask it to.) It's required to at least add a comment explaining them, but I like to review them myself in any case.
