@@ -30,30 +30,27 @@ automatically, including the review skills (`review-codex`, `review-multi`,
 ## Install (the PATH shim)
 
 `codex-mirror` is symlinked as `codex` into `~/.local/codex-shim/`, and `.zshrc`
-inserts that dir into PATH **immediately before nvm's node bin**. Both
-Superconductor's `find_real_binary` and every review skill resolve codex as
-*"first non-superconductor `codex` on PATH"* — which is now the shim. (nvm tends
-to prepend its bin to the very front, ahead of Superconductor, so the shim must
-beat nvm, not merely sit after Superconductor.)
+inserts that dir into PATH **immediately before nvm's node bin** — that's where
+npm puts the real binary, and nvm prepends itself to the very front of PATH.
 
 The symlink is created by `newcomputer.bash`; the PATH insertion lives in
 `zshrc.zsh`. A fresh shell / Claude Code restart is needed after changing PATH.
 
 The shim:
 
-- skips superconductor dirs **and its own dir** when resolving the real codex
-  (no infinite loop);
+- skips its own dir when resolving the real codex (no infinite loop);
 - is a transparent passthrough outside a Claude session (no
   `CLAUDE_CODE_SESSION_ID` → injects nothing), so plain CLI `codex` is unchanged;
 - fails safe — if nvm ever ends up ahead of the shim on PATH, the shim is simply
   bypassed and codex runs normally.
 
-## Two things it deliberately handles
+## Gotchas
 
-- **Bypasses Superconductor's wrapper for resolution.** `codex` on PATH can
-  resolve to `~/.superconductor/bin/codex`, which injects notification/session
-  config via `-c` overrides. The shim (and the review skills) resolve the real
-  binary instead for non-interactive review calls.
+- **Nothing behind the shim.** If no real codex is on PATH the shim exits 127
+  with a plain `codex: command not found`, so it doesn't disguise the real
+  problem. The usual cause is nvm: globals live under one node version, and
+  switching versions (an `.nvmrc`, or `nvm alias default 22` floating to a newer
+  release) leaves them behind. `nvm reinstall-packages <old-version>` fixes it.
 - **One-turn lag.** `usage.speed` reflects the last *persisted* assistant turn,
   so a `/fast` toggle in the same message that launches the work reads the prior
   state. Harmless for multi-turn flows (reviews, debates).

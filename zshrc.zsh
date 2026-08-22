@@ -47,12 +47,11 @@ password () {
 unsetopt share_history
 
 # codex-shim: mirror Claude Code's /fast onto Codex's service_tier.
-# The shim must be the "first non-superconductor `codex`" that both our review
-# skills (`which -a codex | grep -v superconductor | head -1`) and SC's own
-# find_real_binary resolve to — which means it must sit immediately BEFORE nvm's
-# node bin (nvm often prepends itself to the very front, ahead of SC). Outside a
-# Claude session the shim is a transparent passthrough, so plain `codex` from the
-# CLI is unchanged. Details: ~/Documents/dotfiles/codex-shim/README.md
+# The shim has to win the `codex` lookup, so it sits ahead of nvm's node bin —
+# that's where npm installs the real binary, and nvm prepends itself to the very
+# front of PATH. Outside a Claude session the shim is a transparent passthrough,
+# so plain `codex` from the CLI is unchanged.
+# Details: ~/Documents/dotfiles/codex-shim/README.md
 #
 # ~/.local/bin gets the same treatment so the native Claude Code install
 # (~/.local/bin/claude) always beats a stray npm-global copy in nvm's bin —

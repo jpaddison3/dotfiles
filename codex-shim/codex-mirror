@@ -8,15 +8,6 @@
 #   Claude's current speed and injects `-c service_tier=fast|default` so a Codex
 #   call made from inside a Claude session runs at the same tier.
 #
-# Why the shim resolves past itself
-#   Superconductor ships its own wrapper at ~/.superconductor/bin/codex (first on
-#   PATH) that injects notification/session config via -c overrides. Those
-#   wrapper-owned settings are useful for interactive Superconductor sessions,
-#   but can be a bad fit for non-interactive review calls from Claude sessions.
-#   The script may be symlinked onto PATH as `codex`, so it deliberately resolves
-#   the REAL binary by skipping both Superconductor's wrapper and its own
-#   directory.
-#
 # Usage
 #   codex-mirror [any codex args]        e.g.  codex-mirror review --uncommitted
 #
@@ -26,9 +17,9 @@
 
 set -euo pipefail
 
-# 1. Resolve the REAL codex binary, skipping Superconductor's wrapper AND this
-#    script itself. The self-skip lets this same file be symlinked onto PATH as
-#    `codex` (a transparent shim) without execing itself in a loop.
+# 1. Resolve the real codex binary, skipping this script's own directory. The
+#    self-skip is what lets this file be symlinked onto PATH as `codex` (a
+#    transparent shim) without execing itself in a loop.
 SELF_REF="${BASH_SOURCE[0]:-$0}"
 SELF_DIR="$(cd "$(dirname "$SELF_REF")" 2>/dev/null && pwd -P || true)"
 SELF_PATH=""
@@ -36,14 +27,15 @@ SELF_PATH=""
 REAL_CODEX=""
 while IFS= read -r cand; do
   [ -n "$cand" ] || continue
-  case "$cand" in */.superconductor/*|*/.superconductor-dev/*) continue ;; esac
   [ -n "$SELF_PATH" ] && [ "$cand" -ef "$SELF_PATH" ] 2>/dev/null && continue
   cdir="$(cd "$(dirname "$cand")" 2>/dev/null && pwd -P || true)"
   [ -n "$SELF_DIR" ] && [ "$cdir" = "$SELF_DIR" ] && continue
   REAL_CODEX="$cand"; break
 done < <(which -a codex 2>/dev/null || true)
 if [ -z "$REAL_CODEX" ]; then
-  echo "codex-mirror: no real codex binary found on PATH (outside Superconductor / self)." >&2
+  # Nothing behind the shim: report it the way a missing command normally reads,
+  # so the shim doesn't disguise a plain "codex isn't installed here".
+  echo "codex: command not found" >&2
   exit 127
 fi
 

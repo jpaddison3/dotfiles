@@ -50,9 +50,9 @@ ln -sf $SCRIPTPATH/claude-skills/review-multi ~/.claude/skills/review-multi
 ln -sf $SCRIPTPATH/claude-skills/rpr ~/.claude/skills/rpr
 ln -sf $SCRIPTPATH/statusline-command.sh ~/.claude/statusline-command.sh
 
-# codex-shim: mirror Claude Code's /fast onto Codex's service_tier. The shim must be
-# the first non-superconductor `codex` on PATH; zshrc.zsh slots ~/.local/codex-shim
-# in just before nvm's node bin. See codex-shim/README.md.
+# codex-shim: mirror Claude Code's /fast onto Codex's service_tier. The shim has to
+# win the `codex` lookup, so zshrc.zsh slots ~/.local/codex-shim in just before
+# nvm's node bin. See codex-shim/README.md.
 mkdir -p ~/.local/codex-shim
 ln -sf $SCRIPTPATH/codex-shim/codex-mirror ~/.local/codex-shim/codex
 

@@ -75,9 +75,7 @@ Halt with a clear message if any of:
 
 - `$ANTHROPIC_API_KEY` is set (would silently route to API billing instead of Max).
 - `dharma`, `gh`, `git`, or `codex` not on PATH.
-- `codex` resolves to a Superconductor-wrapped binary. Use:
-  `CODEX_BIN="$(which -a codex | grep -v '/.superconductor/' | head -n1)"`
-- You're inside a per-bug triage worktree (cwd matches `*/triage-bug-*`). The skill should be run from the main `minerva/` checkout or any SC worktree of it, not from a bug worktree.
+- You're inside a per-bug triage worktree (cwd matches `*/triage-bug-*`). The skill should be run from the main `minerva/` checkout or any worktree of it, not from a bug worktree.
 
 ### Step 2: Locate canonical paths
 

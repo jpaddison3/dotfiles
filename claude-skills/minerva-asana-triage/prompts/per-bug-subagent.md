@@ -50,7 +50,7 @@ If something *else* feels risky and unauthorized (force-push, touching `main`, d
 
 As a background subagent, calling `Monitor` ends your process: your text response after the Monitor call becomes the agent's terminal message to the parent, and Monitor's wake-up events have no agent left to receive them. This silently kills the run mid-pipeline.
 
-The codex invocations in this prompt (`"$CODEX_BIN" exec ...`) are foreground/synchronous — the Bash call returns when codex finishes — so you should not need Monitor at all. If a codex run appears to finish without producing `.out` content, check the corresponding `.stderr` file for errors and re-run the codex bash directly — but **within the per-step retry limits**, never on a loop. (Empty output under load is a known wedge; Step 9's empty-output rule caps review re-runs at one and turns repeated empties into a BLOCKED, rather than an unbounded retry.) Do **not** background codex and poll via Monitor.
+The codex invocations in this prompt (`codex exec ...`) are foreground/synchronous — the Bash call returns when codex finishes — so you should not need Monitor at all. If a codex run appears to finish without producing `.out` content, check the corresponding `.stderr` file for errors and re-run the codex bash directly — but **within the per-step retry limits**, never on a loop. (Empty output under load is a known wedge; Step 9's empty-output rule caps review re-runs at one and turns repeated empties into a BLOCKED, rather than an unbounded retry.) Do **not** background codex and poll via Monitor.
 
 If you genuinely need to wait on a background process (e.g. a one-off long-running command you `&`-backgrounded), use an inline shell loop in `Bash` (`until <condition>; do sleep 5; done`) — never `Monitor`.
 
@@ -218,9 +218,8 @@ Update `.triage-scratch/STATUS.json` with `phase: "plan-review"`.
 ## Step 5: Codex plan-review
 
 ```bash
-CODEX_BIN="$(which -a codex | grep -v '/.superconductor/' | head -n1)"
 mkdir -p .triage-scratch
-"$CODEX_BIN" exec "$(cat ~/Documents/dotfiles/claude-skills/minerva-asana-triage/prompts/plan-review.md)" < /dev/null 2> .triage-scratch/plan-review.stderr | tee .triage-scratch/plan-review.out
+codex exec "$(cat ~/Documents/dotfiles/claude-skills/minerva-asana-triage/prompts/plan-review.md)" < /dev/null 2> .triage-scratch/plan-review.stderr | tee .triage-scratch/plan-review.out
 ```
 
 Parse the trailing block of `.triage-scratch/plan-review.out`:
@@ -337,9 +336,8 @@ stream warm so the watchdog never fired. Three guards prevent that:
 
 **You hold the state.** Codex is invoked fresh (stateless) on each
 `codex exec` — thread context through the `.triage-scratch/` files below;
-do **not** rely on `codex exec` session resume (unreliable under the
-Superconductor wrapper). Re-resolve `CODEX_BIN` inside every bash block —
-shell state does not persist between calls. Keep a running **dismissed-set**
+do **not** rely on `codex exec` session resume. Shell state does not persist
+between bash blocks either. Keep a running **dismissed-set**
 at `.triage-scratch/dismissed.md` (one short semantic description per
 line), carried into every re-review so settled findings don't resurface:
 
@@ -353,9 +351,8 @@ trash .triage-scratch/dismissed.md 2>/dev/null || true
 **1. Review** (count it against the 4-review cap). Stage and run the 7-lens review:
 
 ```bash
-CODEX_BIN="$(which -a codex | grep -v '/.superconductor/' | head -n1)"
 git add -u
-"$CODEX_BIN" exec "$(cat ~/Documents/dotfiles/claude-skills/minerva-asana-triage/prompts/diff-review.md)" < /dev/null 2> .triage-scratch/diff-review.stderr | tee .triage-scratch/diff-review.out
+codex exec "$(cat ~/Documents/dotfiles/claude-skills/minerva-asana-triage/prompts/diff-review.md)" < /dev/null 2> .triage-scratch/diff-review.stderr | tee .triage-scratch/diff-review.out
 ```
 
 **Empty-output guard first.** If `diff-review.out` is empty/whitespace or
@@ -384,8 +381,7 @@ clearly right.
   prior rounds appended), then:
 
   ```bash
-  CODEX_BIN="$(which -a codex | grep -v '/.superconductor/' | head -n1)"
-  "$CODEX_BIN" exec "$(cat ~/Documents/dotfiles/claude-skills/minerva-asana-triage/prompts/diff-review-debate.md)" < /dev/null 2> .triage-scratch/debate.stderr | tee .triage-scratch/debate.out
+    codex exec "$(cat ~/Documents/dotfiles/claude-skills/minerva-asana-triage/prompts/diff-review-debate.md)" < /dev/null 2> .triage-scratch/debate.stderr | tee .triage-scratch/debate.out
   ```
 
   Apply the empty-output guard, then parse the trailing `OBJECTIONS:` line
