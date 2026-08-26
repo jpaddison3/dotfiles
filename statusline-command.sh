@@ -9,7 +9,11 @@ used_pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 git_worktree=$(echo "$input" | jq -r '.workspace.git_worktree // empty')
 worktree_branch=$(echo "$input" | jq -r '.worktree.branch // empty')
 
-MAX_WIDTH=80
+# Claude Code (>=2.1.153) sets COLUMNS to the terminal width; leave a little
+# slack since notifications sometimes share the statusline row.
+MAX_WIDTH=$(( ${COLUMNS:-80} - 2 ))
+[ "$MAX_WIDTH" -gt 80 ] && MAX_WIDTH=80
+[ "$MAX_WIDTH" -lt 20 ] && MAX_WIDTH=20
 
 # Shorten home directory to ~
 home="$HOME"
