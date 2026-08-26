@@ -9,9 +9,10 @@ used_pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 git_worktree=$(echo "$input" | jq -r '.workspace.git_worktree // empty')
 worktree_branch=$(echo "$input" | jq -r '.worktree.branch // empty')
 
-# Claude Code (>=2.1.153) sets COLUMNS to the terminal width; leave a little
-# slack since notifications sometimes share the statusline row.
-MAX_WIDTH=$(( ${COLUMNS:-80} - 3 ))
+# Claude Code (>=2.1.153) sets COLUMNS to the terminal width, but renders the
+# statusline in COLUMNS-4 cols (~2-col indent plus right margin) and clips
+# anything longer with its own ellipsis.
+MAX_WIDTH=$(( ${COLUMNS:-80} - 4 ))
 [ "$MAX_WIDTH" -gt 80 ] && MAX_WIDTH=80
 [ "$MAX_WIDTH" -lt 20 ] && MAX_WIDTH=20
 
