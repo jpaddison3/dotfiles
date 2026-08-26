@@ -11,7 +11,7 @@ worktree_branch=$(echo "$input" | jq -r '.worktree.branch // empty')
 
 # Claude Code (>=2.1.153) sets COLUMNS to the terminal width; leave a little
 # slack since notifications sometimes share the statusline row.
-MAX_WIDTH=$(( ${COLUMNS:-80} - 2 ))
+MAX_WIDTH=$(( ${COLUMNS:-80} - 3 ))
 [ "$MAX_WIDTH" -gt 80 ] && MAX_WIDTH=80
 [ "$MAX_WIDTH" -lt 20 ] && MAX_WIDTH=20
 
@@ -34,7 +34,7 @@ fi
 # Fixed metadata suffix - model/effort/context are never truncated
 meta=""
 [ -n "$model" ] && meta="$meta  $model"
-[ -n "$effort" ] && meta="$meta  $effort"
+[ -n "$effort" ] && meta="$meta $effort"
 [ -n "$ctx_part" ] && meta="$meta  $ctx_part"
 
 # Collapse a path to its trailing components so it fits in $2 chars,
