@@ -3,27 +3,21 @@ name: <%= ENV['TMUX_SESSION'] || 'dev' %>
 root: ~/
 windows:
   - 80k:
-      layout: tiled
+      layout: even-vertical
       root: ~/80k/advisorbot/<%= ENV['MINERVA_DIR'] || 'minerva' %>
       panes:
         -
         -
-        - xx<%= ENV['MINERVA_PORT'] ? " PORT=#{ENV['MINERVA_PORT']}" : '' %> npm run dev:log
-        -
   - 80k-other:
-      layout: tiled
+      layout: even-vertical
       root: ~/80k
       panes:
         -
         -
-        -
-        -
-  - forum:
-      layout: tiled
-      root: ~/cea/Forum/ForumMagnum
+  - ai-products-research:
+      layout: even-vertical
+      root: ~/80k
       panes:
-        -
-        -
         -
         -
   - repl:
@@ -33,18 +27,14 @@ windows:
         - py3 && ipython
         - node
   - personal:
-      layout: tiled
+      layout: even-vertical
       root: ~/personal-coding
       panes:
         -
-        -
         - cd ../Documents/dotfiles
-        -
   - misc:
-      layout: tiled
+      layout: even-vertical
       root: ~
       panes:
-        -
-        -
         -
         -
