@@ -49,6 +49,12 @@ ln -sf $SCRIPTPATH/claude-skills/review-claude ~/.claude/skills/review-claude
 ln -sf $SCRIPTPATH/claude-skills/review-multi ~/.claude/skills/review-multi
 ln -sf $SCRIPTPATH/claude-skills/rpr ~/.claude/skills/rpr
 ln -sf $SCRIPTPATH/statusline-command.sh ~/.claude/statusline-command.sh
+mkdir -p ~/.claude/hooks
+ln -sf $SCRIPTPATH/claude-hooks/block-gdoc-cat-devnull.sh ~/.claude/hooks/block-gdoc-cat-devnull.sh
+ln -sf $SCRIPTPATH/claude-hooks/stderr-to-logfile.py ~/.claude/hooks/stderr-to-logfile.py
+ln -sf $SCRIPTPATH/claude-hooks/logfile-sink.sh ~/.claude/hooks/logfile-sink.sh
+# Hook registration itself lives in ~/.claude/settings.json, which is untracked
+# (not version-controlled) -- see claude-hooks/README.md.
 
 # codex-shim: mirror Claude Code's /fast onto Codex's service_tier. The shim has to
 # win the `codex` lookup, so zshrc.zsh slots ~/.local/codex-shim in just before
