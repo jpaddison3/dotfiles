@@ -5,13 +5,13 @@ itself untracked (personal, machine-local) and so isn't managed by this repo.
 `newcomputer.bash` symlinks everything here into `~/.claude/hooks/`; the
 settings.json registration is a manual, one-time edit per machine (see below).
 
-## stderr-to-logfile.py + logfile-sink.sh
+## stderr-to-logfile.py + logfile-sink.py
 
 Every AI-run Bash command that discards its stderr (`2>/dev/null`,
 `&>/dev/null`, `>/dev/null 2>&1`, ...) gets that redirect transparently
-rewritten to a process substitution that pipes into `logfile-sink.sh`
+rewritten to a process substitution that pipes into `logfile-sink.py`
 instead, which prefixes each line with a timestamp and the full original
-command and appends it to `~/.logs/YYYY-MM-DD.log`. The AI's command is
+command (whitespace-flattened to one line) and appends it to `~/.logs/YYYY-MM-DD.log`. The AI's command is
 never shown the rewrite and doesn't need to cooperate; stdout and exit
 status are untouched. Grep `~/.logs/` (`loggrep <term>`) when hunting a
 failure whose stderr would otherwise be gone.
@@ -20,8 +20,10 @@ failure whose stderr would otherwise be gone.
 when it can find an unambiguous, unquoted, top-level redirect matching one
 of the three forms above, in a statement that touches fd 2 exactly once,
 outside heredoc bodies, quoted strings, and `$(...)`/`(...)` subshells, and
-that isn't a `command -v`/`which`/`hash`/`type` probe. Anything it isn't
-sure about is left alone — a missed rewrite is cheap, a mangled command
+that isn't a `command -v`/`which`/`hash`/`type` probe. It also declines to
+rewrite at all when `logfile-sink.py` isn't installed and executable, since a
+process substitution with no reader SIGPIPEs the command on a large enough
+stderr burst. Anything it isn't sure about is left alone — a missed rewrite is cheap, a mangled command
 isn't. See `tests/test_stderr_to_logfile.py` for the case-by-case
 behavior.
 

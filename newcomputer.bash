@@ -52,7 +52,7 @@ ln -sf $SCRIPTPATH/statusline-command.sh ~/.claude/statusline-command.sh
 mkdir -p ~/.claude/hooks
 ln -sf $SCRIPTPATH/claude-hooks/block-gdoc-cat-devnull.sh ~/.claude/hooks/block-gdoc-cat-devnull.sh
 ln -sf $SCRIPTPATH/claude-hooks/stderr-to-logfile.py ~/.claude/hooks/stderr-to-logfile.py
-ln -sf $SCRIPTPATH/claude-hooks/logfile-sink.sh ~/.claude/hooks/logfile-sink.sh
+ln -sf $SCRIPTPATH/claude-hooks/logfile-sink.py ~/.claude/hooks/logfile-sink.py
 # Hook registration itself lives in ~/.claude/settings.json, which is untracked
 # (not version-controlled) -- see claude-hooks/README.md.
 

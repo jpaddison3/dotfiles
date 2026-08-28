@@ -3,7 +3,7 @@
 
 Detects the three ways a command throws stderr into /dev/null (`2>/dev/null`,
 `&>/dev/null`, and `>/dev/null 2>&1`) and swaps just that redirect for a
-process substitution piping into logfile-sink.sh, labelled with the full
+process substitution piping into logfile-sink.py, labelled with the full
 original command. Everything else about the command is untouched: stdout
 keeps whatever destination it already had, and output redirects never affect
 exit status, so callers see identical behavior.
@@ -15,6 +15,7 @@ fd, `command -v`/which/hash/type probes) is left alone. A missed rewrite is
 cheap; a mangled command is not.
 """
 import json
+import os
 import re
 import shlex
 import sys
@@ -29,7 +30,8 @@ PRECEDE_BLOCKERS = set(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$}'\""
 )
 PROBE_RE = re.compile(r"^(command\s+-v|which|hash|type)(\s|$)")
-SINK_CMD = '"$HOME/.claude/hooks/logfile-sink.sh"'
+SINK_PATH = os.path.join(os.path.expanduser("~"), ".claude", "hooks", "logfile-sink.py")
+SINK_CMD = '"$HOME/.claude/hooks/logfile-sink.py"'
 
 # Match kinds that touch fd 2 (or, for stdout_null_dup, fold in the fd1 leg
 # too) and therefore count toward the "only one redirect may touch this fd"
@@ -343,6 +345,11 @@ def scan(cmd):
 
 def rewrite(cmd):
     """Return a rewritten command string, or None if nothing should change."""
+    if not os.access(SINK_PATH, os.X_OK):
+        # No reader for the process substitution means the command's stderr
+        # writes hit a dead pipe -- a big enough burst kills it with SIGPIPE.
+        # Leaving the discard alone is strictly better than that.
+        return None
     scanned = scan(cmd)
     if scanned is None:
         return None
