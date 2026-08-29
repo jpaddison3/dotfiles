@@ -56,7 +56,7 @@ commands reviewed by hand.)
 ### Registering the hook (manual, per machine)
 
 Add to the `PreToolUse` → `Bash` matcher list in `~/.claude/settings.json`,
-alongside `block-gdoc-cat-devnull.sh`:
+after `block-gdoc-cat-devnull.py` (the deny hook should be listed first):
 
 ```json
 {
@@ -71,9 +71,15 @@ alongside `block-gdoc-cat-devnull.sh`:
 not bypass or auto-approve anything; the tool call still goes through the
 normal permission flow with the rewritten command as its input.
 
-## block-gdoc-cat-devnull.sh
+## block-gdoc-cat-devnull.py
 
-Denies any `gdoc cat` invocation whose output is sent to `/dev/null`,
-since that silences gdoc's edit-conflict guard (see the script for the
-full story). Previously lived only as an untracked file on this machine;
-moved here so a rebuild doesn't silently lose it.
+Denies a `gdoc cat` invocation whose output is sent to `/dev/null`, since
+that silences gdoc's edit-conflict guard (see the script for the full
+story). Statement-aware via `stderr-to-logfile.py`'s scanner: a command
+merely *mentioning* the pattern (a heredoc body, a quoted string, a discard
+in an unrelated statement) is allowed — the whole-text-grep `.sh` it
+replaces denied all of those, including the PR-body edit that documented
+this rule. A command the scanner can't parse falls back to the old grep, so
+the deny never gets weaker than the original. Previously lived only as an
+untracked file on this machine; moved here so a rebuild doesn't silently
+lose it.
