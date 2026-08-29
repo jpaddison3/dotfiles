@@ -11,7 +11,7 @@ I live in Cambridge, Massachusetts. My husband's name is Will.
 ## Software
 
 - Use `trash` instead of `rm` to delete files / folders
-- Stderr you discard (`2>/dev/null` and friends) is rewritten to land in `~/.logs/` instead; grep there (`loggrep <term>`) when hunting a failure.
+- Output you discard (`2>/dev/null`, `>/dev/null`, `&>/dev/null` and friends) is rewritten to land in `~/.logs/` instead; grep there (`loggrep <term>`) when hunting a failure.
 - Please avoid using the global python raw. `source ~/venvs/py3/bin/activate &&` for all python commands.
 - I tend to prefer new commits when making changes after a previous commit has been pushed, instead of amending.
 - Co-sign commits that you make

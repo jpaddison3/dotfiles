@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
-"""PreToolUse (Bash) hook: rewrite a discarded stderr into the log sink.
+"""PreToolUse (Bash) hook: rewrite discarded output into the log sink.
 
-Detects the three ways a command throws stderr into /dev/null (`2>/dev/null`,
-`&>/dev/null`, and `>/dev/null 2>&1`) and swaps just that redirect for a
-process substitution piping into logfile-sink.py, labelled with the full
-original command. Everything else about the command is untouched: stdout
-keeps whatever destination it already had, and output redirects never affect
-exit status, so callers see identical behavior.
+Detects the ways a command throws output into /dev/null -- stderr alone
+(`2>/dev/null`), stdout alone (`>/dev/null`), and both merged (`&>/dev/null`,
+`>/dev/null 2>&1`) -- and swaps each such redirect for a process substitution
+piping into logfile-sink.py, labelled with the full original command and
+tagged with which stream it carries. Everything else about the command is
+untouched: a non-discarded stream keeps whatever destination it already had,
+and output redirects never affect exit status, so callers see identical
+behavior.
 
 This is string surgery on arbitrary shell, so it is conservative by
 construction: anything not confidently recognized (heredocs, the discard
 text sitting inside a quoted string, multiple redirects touching the same
-fd, `command -v`/which/hash/type probes) is left alone. A missed rewrite is
+fd, order-dependent dup redirects like a bare `2>&1` or `>&2`,
+`command -v`/which/hash/type probes) is left alone. A missed rewrite is
 cheap; a mangled command is not.
 """
 import json
@@ -33,15 +36,17 @@ PROBE_RE = re.compile(r"^(command\s+-v|which|hash|type)(\s|$)")
 SINK_PATH = os.path.join(os.path.expanduser("~"), ".claude", "hooks", "logfile-sink.py")
 SINK_CMD = '"$HOME/.claude/hooks/logfile-sink.py"'
 
-# Match kinds that touch fd 2 (or, for stdout_null_dup, fold in the fd1 leg
-# too) and therefore count toward the "only one redirect may touch this fd"
-# ambiguity guard. Only these three are ever eligible for rewriting.
-REWRITABLE = {"stderr_null", "combined_null", "stdout_null_dup"}
-# Everything else that also counts toward the ambiguity tally: further fd2
-# redirects we don't specifically target, and dup-style redirects whose
-# target depends on redirect order (2>&1 alone, 1>&2/>&2) rather than naming
-# /dev/null outright.
-RISKY = REWRITABLE | {"dup_2_to_1", "other_fd2", "fd1_follows_fd2"}
+# The ambiguity guard is per-fd: a discard is rewritten only when it is the
+# sole redirect touching that fd in its statement, and any dup-style redirect
+# whose meaning depends on redirect order (a bare 2>&1, 1>&2/>&2, >&N/>&-)
+# vetoes the whole statement, since dups entangle the two fds' targets.
+REWRITABLE = {"stderr_null", "combined_null", "stdout_null_dup", "stdout_null_only"}
+DUP_KINDS = {"dup_2_to_1", "fd1_follows_fd2", "other_dup"}
+# other_fd1/other_fd2: a redirect sending just that fd somewhere we don't
+# target (2>errs.log, >out.txt); other_both: one construct claiming both fds
+# (&>file). All tally against the guard without being rewritable themselves.
+TOUCH_FD1 = {"stdout_null_only", "stdout_null_dup", "combined_null", "other_fd1", "other_both"}
+TOUCH_FD2 = {"stderr_null", "stdout_null_dup", "combined_null", "other_fd2", "other_both"}
 
 
 @dataclass
@@ -50,7 +55,6 @@ class Match:
     end: int
     kind: str
     statement_id: int
-    keep_prefix_end: int = -1  # for stdout_null_dup: end of the ">... /dev/null" leg
 
 
 def _boundary_after(s, i):
@@ -230,7 +234,7 @@ def scan(cmd):
                 # touches both fds via a target we don't specifically parse.
                 m = re.match(r"[^\s;|()<>]*", cmd[j2:])
                 end = j2 + (m.end() if m else 0)
-                matches.append(Match(tok_start, end, "other_fd2", statement_id))
+                matches.append(Match(tok_start, end, "other_both", statement_id))
                 i = max(end, j)
                 continue
             new_statement(i + 1)
@@ -284,24 +288,36 @@ def scan(cmd):
                     )
                     i = end
                     continue
-                # >& to some other fd we don't specifically parse (>&3, >&-).
+                # >& to some other fd we don't specifically parse (>&3, >&-,
+                # or bash's >&file spelling of &>file): dup-flavored, veto.
                 m = re.match(r"[^\s;|()<>]*", cmd[j:])
                 end = j + (m.end() if m else 0)
-                matches.append(Match(tok_start, end, "other_fd2", statement_id))
+                matches.append(Match(tok_start, end, "other_dup", statement_id))
                 i = max(end, j)
                 continue
 
             tok_start = i
-            j = i + 1
+            # Walk back over an explicit fd number. A bare '>' or '1>' is a
+            # stdout redirect; any other fd (3>, 12>) is consumed as inert so
+            # its /dev/null target can't be mistaken for a stdout discard.
+            fd_start = tok_start
+            while fd_start > 0 and cmd[fd_start - 1].isdigit():
+                fd_start -= 1
+            fd_digits = cmd[fd_start:tok_start]
+            if fd_digits and not _boundary_before(cmd, fd_start):
+                fd_digits = ""  # part of a word (file1>...), not an fd
+                fd_start = tok_start
+            j = tok_start + 1
             if j < n and cmd[j] == ">":
                 j += 1
-            real_start = tok_start
-            if (
-                tok_start > 0
-                and cmd[tok_start - 1] == "1"
-                and _boundary_before(cmd, tok_start - 1)
-            ):
-                real_start = tok_start - 1
+            if fd_digits not in ("", "1"):
+                j2 = _skip_spaces(cmd, j)
+                m = re.match(r"[^\s;|()<>]*", cmd[j2:])
+                end = j2 + (m.end() if m else 0)
+                matches.append(Match(fd_start, end, "other_fd_misc", statement_id))
+                i = max(end, j)
+                continue
+            real_start = fd_start
 
             j2 = _skip_spaces(cmd, j)
             if cmd[j2 : j2 + len(DEVNULL)] == DEVNULL and _boundary_after(
@@ -315,13 +331,7 @@ def scan(cmd):
                     and _boundary_after(cmd, k + 4)
                 ):
                     matches.append(
-                        Match(
-                            real_start,
-                            k + 4,
-                            "stdout_null_dup",
-                            statement_id,
-                            keep_prefix_end=end,
-                        )
+                        Match(real_start, k + 4, "stdout_null_dup", statement_id)
                     )
                     i = k + 4
                     continue
@@ -330,6 +340,10 @@ def scan(cmd):
                 )
                 i = end
                 continue
+            # stdout to somewhere real. Tally it for the fd-1 guard but leave
+            # the target unconsumed: a quoted target ("my file.log") parses
+            # correctly via the quote states, which a token regex would split.
+            matches.append(Match(real_start, j, "other_fd1", statement_id))
             i = j
             continue
 
@@ -362,26 +376,33 @@ def rewrite(cmd):
         by_statement.setdefault(m.statement_id, []).append(m)
 
     to_replace = []  # (start, end, replacement_text)
+    label = shlex.quote(cmd)
     for sid, ms in by_statement.items():
-        risky = [m for m in ms if m.kind in RISKY]
-        if len(risky) != 1:
+        if any(m.kind in DUP_KINDS for m in ms):
             continue
-        target = risky[0]
-        if target.kind not in REWRITABLE:
-            continue
-        prefix = cmd[statement_start.get(sid, 0) : target.start]
-        if PROBE_RE.match(prefix.lstrip(" \t")):
-            continue
-
-        label = shlex.quote(cmd)
-        sink = f">({SINK_CMD} {label})"
-        if target.kind == "stderr_null":
-            to_replace.append((target.start, target.end, f"2> {sink}"))
-        elif target.kind == "combined_null":
-            to_replace.append((target.start, target.end, f">{DEVNULL} 2> {sink}"))
-        elif target.kind == "stdout_null_dup":
-            keep = cmd[target.start : target.keep_prefix_end]
-            to_replace.append((target.start, target.end, f"{keep} 2> {sink}"))
+        fd1_count = sum(1 for m in ms if m.kind in TOUCH_FD1)
+        fd2_count = sum(1 for m in ms if m.kind in TOUCH_FD2)
+        for target in ms:
+            if target.kind not in REWRITABLE:
+                continue
+            prefix = cmd[statement_start.get(sid, 0) : target.start]
+            if PROBE_RE.match(prefix.lstrip(" \t")):
+                continue
+            if target.kind == "stderr_null" and fd2_count == 1:
+                rep = f"2> >({SINK_CMD} --stream=err {label})"
+            elif target.kind == "stdout_null_only" and fd1_count == 1:
+                rep = f"> >({SINK_CMD} --stream=out {label})"
+            elif (
+                target.kind in ("combined_null", "stdout_null_dup")
+                and fd1_count == 1
+                and fd2_count == 1
+            ):
+                # Both streams shared one destination originally, so one
+                # merged sink is faithful; the trailing 2>&1 re-merges them.
+                rep = f"> >({SINK_CMD} --stream=out+err {label}) 2>&1"
+            else:
+                continue
+            to_replace.append((target.start, target.end, rep))
 
     if not to_replace:
         return None
