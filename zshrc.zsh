@@ -71,3 +71,14 @@ unsetopt share_history
   (( inserted )) || out=($HOME/.local/codex-shim $HOME/.local/bin $out)  # no nvm dir? front
   path=($out)
 }
+
+# claude-life runs on the Team ("80,000 Hours") login instead of the default
+# personal-Max one in ~/.claude. Account choice is CLAUDE_CONFIG_DIR at launch,
+# so a wrapper is the only way to make it per-repo.
+claude() {
+  if [[ "$PWD" == "$HOME/personal-coding/claude-life"* ]]; then
+    CLAUDE_CONFIG_DIR="$HOME/.claude-team" command claude "$@"
+  else
+    command claude "$@"
+  fi
+}
