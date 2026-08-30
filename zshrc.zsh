@@ -72,10 +72,27 @@ unsetopt share_history
   path=($out)
 }
 
-# claude-life runs on the Team ("80,000 Hours") login instead of the default
-# personal-Max one in ~/.claude. Account choice is CLAUDE_CONFIG_DIR at launch,
-# so a wrapper is the only way to make it per-repo.
+# Per-repo Claude account. Account choice is CLAUDE_CONFIG_DIR at launch, so a
+# wrapper is the only way to make it per-repo. Default (~/.claude) is the
+# personal-Max login on the work email.
+#   ~/.claude-team  — "80,000 Hours" Team org (work email)
+#   ~/.claude-gmail — johnpaddison@gmail.com account
 claude() {
+  local -a gmail_repos=(
+    "$HOME/Documents/dotfiles"
+    "$HOME/personal-coding/personal-travel"
+    "$HOME/personal-coding/todoist-quick-add"
+    "$HOME/personal-coding/dharma"
+    "$HOME/personal-coding/gdoc"
+    "$HOME/personal-coding/betterheap"
+  )
+  local repo
+  for repo in $gmail_repos; do
+    if [[ "$PWD" == "$repo"* ]]; then
+      CLAUDE_CONFIG_DIR="$HOME/.claude-gmail" command claude "$@"
+      return
+    fi
+  done
   if [[ "$PWD" == "$HOME/personal-coding/claude-life"* ]]; then
     CLAUDE_CONFIG_DIR="$HOME/.claude-team" command claude "$@"
   else
