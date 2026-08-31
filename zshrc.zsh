@@ -77,7 +77,13 @@ unsetopt share_history
 # personal-Max login on the work email.
 #   ~/.claude-team  — "80,000 Hours" Team org (work email)
 #   ~/.claude-gmail — johnpaddison@gmail.com account
+# An explicit CLAUDE_CONFIG_DIR wins over the repo mapping, e.g.:
+#   CLAUDE_CONFIG_DIR=~/.claude-team claude
 claude() {
+  if [[ -n "$CLAUDE_CONFIG_DIR" ]]; then
+    command claude "$@"
+    return
+  fi
   local -a gmail_repos=(
     "$HOME/Documents/dotfiles"
     "$HOME/personal-coding/personal-travel"
