@@ -49,6 +49,12 @@ ln -sf $SCRIPTPATH/claude-skills/review-claude ~/.claude/skills/review-claude
 ln -sf $SCRIPTPATH/claude-skills/review-multi ~/.claude/skills/review-multi
 ln -sf $SCRIPTPATH/claude-skills/rpr ~/.claude/skills/rpr
 ln -sf $SCRIPTPATH/statusline-command.sh ~/.claude/statusline-command.sh
+# Alt config dirs share ~/.claude/skills (-n so an existing link is replaced, not descended into)
+for claude_config_dir in ~/.claude-gmail ~/.claude-team; do
+  if [ -d "$claude_config_dir" ]; then
+    ln -sfn ~/.claude/skills "$claude_config_dir/skills"
+  fi
+done
 mkdir -p ~/.claude/hooks
 ln -sf $SCRIPTPATH/claude-hooks/block-gdoc-cat-devnull.py ~/.claude/hooks/block-gdoc-cat-devnull.py
 ln -sf $SCRIPTPATH/claude-hooks/stderr-to-logfile.py ~/.claude/hooks/stderr-to-logfile.py
