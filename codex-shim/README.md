@@ -87,3 +87,10 @@ rollouts, so it can't be confirmed after the fact). But `service_tier` is the
 documented, config-level lever — and JP's `~/.codex/config.toml` already uses
 `service_tier = "default"` as its standard, so injecting `fast`/`default` is the
 correct, intended mechanism.
+
+## Also in this dir: `orca-open-guard`
+
+A second PATH shim, symlinked as `orca`. It rewrites `orca open` to `orca status`
+whenever Orca is already running, because `orca open` raises the Orca window
+(focus steal) and Codex agents run it reflexively. Everything else passes
+through. `ORCA_OPEN_GUARD=0` bypasses it. See the script header for details.

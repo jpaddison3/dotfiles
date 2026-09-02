@@ -12,6 +12,7 @@ SCRIPTPATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 ln -sf $SCRIPTPATH/bashrc.bash ~/.bashrc
 ln -sf $SCRIPTPATH/bash_profile.bash ~/.bash_profile
 ln -sf $SCRIPTPATH/zshrc.zsh ~/.zshrc
+ln -sf $SCRIPTPATH/zprofile.zsh ~/.zprofile
 ln -sf $SCRIPTPATH/tmuxconfig.conf ~/.tmux.conf
 mkdir -p ~/.tmuxinator
 ln -sf $SCRIPTPATH/tmuxinator-multi.yml ~/.tmuxinator/multi.yml
@@ -67,6 +68,8 @@ ln -sf $SCRIPTPATH/claude-hooks/logfile-sink.py ~/.claude/hooks/logfile-sink.py
 # nvm's node bin. See codex-shim/README.md.
 mkdir -p ~/.local/codex-shim
 ln -sf $SCRIPTPATH/codex-shim/codex-mirror ~/.local/codex-shim/codex
+# orca-open-guard: keep `orca open` from raising the Orca window when it is already running.
+ln -sf $SCRIPTPATH/codex-shim/orca-open-guard ~/.local/codex-shim/orca
 
 # Codex skills
 mkdir -p ~/.codex/skills

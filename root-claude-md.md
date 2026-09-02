@@ -15,6 +15,7 @@ I live in Cambridge, Massachusetts. My husband's name is Will.
 - Please avoid using the global python raw. `source ~/venvs/py3/bin/activate &&` for all python commands.
 - I tend to prefer new commits when making changes after a previous commit has been pushed, instead of amending.
 - Co-sign commits that you make
+- Orca is always running on this machine. Never run `orca open`; it raises the Orca window and steals my focus. Use `orca status --json` to check readiness.
 
 ## Taking actions on my behalf
 

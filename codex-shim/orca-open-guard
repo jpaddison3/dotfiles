@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# orca-open-guard — PATH shim for `orca` that stops `orca open` from stealing focus.
+#
+# Why this exists
+#   `orca open` brings the Orca window to the front (Electron app.focus with
+#   steal) even when Orca is already running. Codex agents run `orca open --json`
+#   reflexively — Orca's bundled orca-linear skill lists it as a precondition —
+#   so JP's active window gets yanked to Orca several times a day. When Orca is
+#   already running, `orca status --json` returns the same "local-status" JSON,
+#   so this shim rewrites `orca open` to `orca status` in that case and passes
+#   everything else through to the real CLI untouched.
+#
+# Install
+#   Symlinked as `orca` into ~/.local/codex-shim (see newcomputer.bash), which
+#   zshrc.zsh keeps ahead of /usr/local/bin on PATH.
+#
+# Env knobs
+#   ORCA_OPEN_GUARD=0    bypass the rewrite (run the real `orca open`)
+
+set -euo pipefail
+
+# Resolve the real orca, skipping this script's own directory (same trick as
+# codex-mirror, so the symlinked shim never execs itself).
+SELF_REF="${BASH_SOURCE[0]:-$0}"
+SELF_DIR="$(cd "$(dirname "$SELF_REF")" 2>/dev/null && pwd -P || true)"
+SELF_PATH=""
+[ -n "$SELF_DIR" ] && SELF_PATH="$SELF_DIR/$(basename "$SELF_REF")"
+REAL_ORCA=""
+while IFS= read -r cand; do
+  [ -n "$cand" ] || continue
+  [ -n "$SELF_PATH" ] && [ "$cand" -ef "$SELF_PATH" ] 2>/dev/null && continue
+  cdir="$(cd "$(dirname "$cand")" 2>/dev/null && pwd -P || true)"
+  [ -n "$SELF_DIR" ] && [ "$cdir" = "$SELF_DIR" ] && continue
+  REAL_ORCA="$cand"; break
+done < <(which -a orca 2>/dev/null || true)
+if [ -z "$REAL_ORCA" ]; then
+  echo "orca: command not found" >&2
+  exit 127
+fi
+
+# The Orca main process is the arg-less MacOS/Orca binary; CLI invocations run
+# the same binary with a script path appended, so anchor on end-of-line.
+orca_running() {
+  pgrep -f 'Orca\.app/Contents/MacOS/Orca$' >/dev/null 2>&1
+}
+
+if [ "${1:-}" = "open" ] && [ "${ORCA_OPEN_GUARD:-1}" != "0" ] && orca_running; then
+  echo "orca-open-guard: Orca is already running; running 'orca status' instead of 'orca open' so the window is not raised (ORCA_OPEN_GUARD=0 to bypass)" >&2
+  shift
+  exec "$REAL_ORCA" status "$@"
+fi
+
+exec "$REAL_ORCA" "$@"
