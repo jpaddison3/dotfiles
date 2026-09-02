@@ -91,6 +91,10 @@ claude() {
     "$HOME/personal-coding/dharma"
     "$HOME/personal-coding/gdoc"
     "$HOME/personal-coding/betterheap"
+    # 80k-coding-tools: personal feature work, don't bill 80k
+    "$HOME/80k/80k-coding-tools"
+    "$HOME/dev/worktrees/80k-coding-tools"
+    "$HOME/orca/workspaces/80k-coding-tools"
   )
   local repo
   for repo in $gmail_repos; do
