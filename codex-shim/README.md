@@ -1,15 +1,29 @@
-# codex-shim — mirror Claude Code's `/fast` onto Codex
+# codex-shim — route Codex account and mirror Claude Code's `/fast`
 
-`codex-mirror` makes Codex's `service_tier` follow Claude Code's current `/fast`
-state, so a `codex` call made from inside a Claude session runs at the same speed
-tier as Claude.
+`codex-mirror` selects JP's Codex account from the current repo and makes
+Codex's `service_tier` follow Claude Code's current `/fast` state, so a `codex`
+call uses the right account and speed tier.
 
 It is installed as a **transparent PATH shim**, so there is nothing to invoke by
 hand and no skill to remember — every `codex` call routes through it
 automatically, including the review skills (`review-codex`, `review-multi`,
 `swarm-loop-review`) and ad-hoc calls.
 
-## How it works
+## Account routing
+
+The shim sets `CODEX_HOME=~/.codex-gmail` in the same personal repos that use
+Claude's Gmail account. That home is logged into `johnpaddison@gmail.com`.
+Everywhere else it leaves `CODEX_HOME` unset, so Codex uses the default
+`~/.codex` home logged into `jp.addison@80000hours.org`.
+
+An explicit `CODEX_HOME` from the caller always wins. Credential storage is
+configured as file-based so the homes use separate `auth.json` files rather
+than converging through the macOS Keychain.
+
+Because routing lives in the PATH shim rather than a shell function, it also
+applies to review skills and other subprocesses that invoke `codex`.
+
+## Speed mirroring
 
 1. Claude Code's `/fast` toggle is echoed back by the API as `usage.speed`
    (`"fast"` | `"standard"`) and persisted to the session transcript at
@@ -39,8 +53,9 @@ The symlink is created by `newcomputer.bash`; the PATH insertion lives in
 The shim:
 
 - skips its own dir when resolving the real codex (no infinite loop);
-- is a transparent passthrough outside a Claude session (no
-  `CLAUDE_CODE_SESSION_ID` → injects nothing), so plain CLI `codex` is unchanged;
+- routes personal repos to the Gmail Codex home and otherwise uses the default;
+- leaves speed unchanged outside a Claude session (`CLAUDE_CODE_SESSION_ID` is
+  absent, so it injects no service-tier override);
 - fails safe — if nvm ever ends up ahead of the shim on PATH, the shim is simply
   bypassed and codex runs normally.
 

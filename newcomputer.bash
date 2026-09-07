@@ -49,7 +49,11 @@ ln -sf $SCRIPTPATH/claude-skills/review-codex ~/.claude/skills/review-codex
 ln -sf $SCRIPTPATH/claude-skills/review-claude ~/.claude/skills/review-claude
 ln -sf $SCRIPTPATH/claude-skills/review-multi ~/.claude/skills/review-multi
 ln -sf $SCRIPTPATH/claude-skills/rpr ~/.claude/skills/rpr
-ln -sf $SCRIPTPATH/statusline-command.sh ~/.claude/statusline-command.sh
+for claude_config_dir in ~/.claude ~/.claude-gmail ~/.claude-team; do
+  if [ -d "$claude_config_dir" ]; then
+    ln -sf $SCRIPTPATH/statusline-command.sh "$claude_config_dir/statusline-command.sh"
+  fi
+done
 # Alt config dirs share ~/.claude/skills (-n so an existing link is replaced, not descended into)
 for claude_config_dir in ~/.claude-gmail ~/.claude-team; do
   if [ -d "$claude_config_dir" ]; then

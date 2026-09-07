@@ -17,7 +17,24 @@
 
 set -euo pipefail
 
-# 1. Resolve the real codex binary, skipping this script's own directory. The
+# 1. Select the Codex account from the working directory. Respect an explicit
+#    CODEX_HOME from the caller; otherwise personal repos use the Gmail login
+#    and everything else falls back to Codex's default ~/.codex home (80k).
+if [ -z "${CODEX_HOME:-}" ]; then
+  case "$PWD" in
+    "$HOME/Documents/dotfiles"|"$HOME/Documents/dotfiles"/*|\
+    "$HOME/personal-coding/claude-life"|"$HOME/personal-coding/claude-life"/*|\
+    "$HOME/personal-coding/personal-travel"|"$HOME/personal-coding/personal-travel"/*|\
+    "$HOME/personal-coding/todoist-quick-add"|"$HOME/personal-coding/todoist-quick-add"/*|\
+    "$HOME/personal-coding/dharma"|"$HOME/personal-coding/dharma"/*|\
+    "$HOME/personal-coding/gdoc"|"$HOME/personal-coding/gdoc"/*|\
+    "$HOME/personal-coding/betterheap"|"$HOME/personal-coding/betterheap"/*)
+      export CODEX_HOME="$HOME/.codex-gmail"
+      ;;
+  esac
+fi
+
+# 2. Resolve the real codex binary, skipping this script's own directory. The
 #    self-skip is what lets this file be symlinked onto PATH as `codex` (a
 #    transparent shim) without execing itself in a loop.
 SELF_REF="${BASH_SOURCE[0]:-$0}"
@@ -39,7 +56,7 @@ if [ -z "$REAL_CODEX" ]; then
   exit 127
 fi
 
-# 2. Determine Claude Code's current speed.
+# 3. Determine Claude Code's current speed.
 #    Precedence: explicit override > session transcript > unknown.
 #    usage.speed is "fast" when /fast is on, "standard" otherwise. It reflects
 #    the last PERSISTED assistant turn, so a /fast toggle lands one turn later.
@@ -52,7 +69,7 @@ if [ -z "$speed" ] && [ -n "${CLAUDE_CODE_SESSION_ID:-}" ] && command -v jq >/de
   fi
 fi
 
-# 3. Map speed -> service_tier. This is the real lever for non-interactive runs:
+# 4. Map speed -> service_tier. This is the real lever for non-interactive runs:
 #    config "fast" maps to the request service tier "priority" (1.5x speed, more
 #    credits); "default" is standard. (The features.fast_mode flag only gates the
 #    TUI's /fast command and does nothing for `codex exec`/`review`.) If we can't
@@ -66,7 +83,7 @@ case "$speed" in
 esac
 
 if [ -n "${CODEX_MIRROR_DEBUG:-}" ]; then
-  echo "codex-mirror: real=$REAL_CODEX speed='${speed:-unknown}' inject='${inject[*]:-<none>}'" >&2
+  echo "codex-mirror: real=$REAL_CODEX home='${CODEX_HOME:-$HOME/.codex}' speed='${speed:-unknown}' inject='${inject[*]:-<none>}'" >&2
   echo "codex-mirror: would run: $REAL_CODEX ${inject[*]:-} $*" >&2
   exit 0
 fi
