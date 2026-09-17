@@ -9,3 +9,28 @@ Run `./newcomputer.bash` to set up symlinks and configurations on a new machine.
 - Link git helpers
 - Copy VSCode settings (macOS path)
 - Set up PostgreSQL configuration
+
+** Inbox triage Raycast commands
+
+Install or update the three focused Raycast Script Commands from this checkout:
+
+#+begin_src sh
+make install-inbox-triage-raycast
+#+end_src
+
+This copies only the scripts into
+~/.local/share/raycast/scripts/inbox-triage/~ and leaves other Raycast scripts
+and settings alone. Re-run the command after updating this checkout. To
+uninstall, remove only those three installed scripts from that directory.
+
+In Raycast, open **Settings → Extensions**, choose **+ → Add Script Directory**,
+and add ~/.local/share/raycast/scripts/inbox-triage/~. Select **Inbox Triage**
+and enter **Ctrl+Option+Command+I** in its **Hotkey** field. Leave **Inbox
+Triage — BOD** and **Inbox Triage — EOD** without default hotkeys. If Raycast
+reports a conflicting assignment, resolve it in Raycast rather than changing
+another command here.
+
+The scripts call the separately installed ~inbox-triage-launch~ backend once
+per invocation. Install that backend first in the 80k-coding-tools checkout
+with ~make install-inbox-triage~. The auto command delegates local-time mode
+selection to the backend; the BOD and EOD commands pass their explicit modes.
