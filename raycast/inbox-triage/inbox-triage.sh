@@ -22,9 +22,16 @@ if [[ ! -x "$backend" ]]; then
 fi
 
 set +e
-backend_output="$("$backend" --mode auto)"
+# A sentinel keeps command substitution from stripping backend newlines.
+backend_output="$(
+  "$backend" --mode auto
+  status=$?
+  printf '.'
+  exit "$status"
+)"
 backend_status=$?
 set -e
+backend_output="${backend_output%.}"
 
 if summary="$(
   printf '%s' "$backend_output" | TMPDIR="${TMPDIR:-/tmp}" python3 -c '
@@ -43,17 +50,18 @@ if not isinstance(payload, dict):
     raise SystemExit(0)
 
 def one_line(value):
-    return str(value).replace("\\n", " ")
+    return " ".join(str(value).splitlines())
 
 action = payload.get("action")
 if action == "launched":
+    label = "launched" if sys.argv[1] == "0" else "launch failed"
     mode = one_line(payload.get("mode", "unknown"))
     pane = payload.get("terminal_handle")
     if pane:
-        print(f"launched: mode={mode} pane={one_line(pane)}")
+        print(f"{label}: mode={mode} pane={one_line(pane)}")
     elif payload.get("run_id"):
         run_id = one_line(payload["run_id"])
-        print(f"launched: mode={mode} run={run_id}")
+        print(f"{label}: mode={mode} run={run_id}")
     else:
         sys.stdout.write(raw)
 elif action == "already-preparing":
@@ -67,11 +75,11 @@ elif action == "reopened" and not payload.get("opened", False):
     print(f"reopen failed: {error}")
 else:
     sys.stdout.write(raw)
-'
+' "$backend_status" && printf '.'
 )"; then
-  printf '%s\n' "$summary"
+  printf '%s' "${summary%.}"
 else
-  printf '%s\n' "$backend_output"
+  printf '%s' "$backend_output"
 fi
 
 exit "$backend_status"
