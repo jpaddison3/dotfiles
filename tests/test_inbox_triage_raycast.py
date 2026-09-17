@@ -1,4 +1,5 @@
 import os
+import json
 import re
 import subprocess
 import tempfile
@@ -71,6 +72,61 @@ class RaycastScriptTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 37)
                 self.assertEqual((self.home / "calls").read_text().splitlines(), ["call"])
                 self.assertEqual(result.stderr, "backend failed\n")
+
+    def test_structured_backend_output_is_condensed_for_compact_mode(self):
+        cases = {
+            "fresh launch": (
+                json.dumps(
+                    {
+                        "action": "launched",
+                        "mode": "bod",
+                        "terminal_handle": "pane-123",
+                        "run_id": "run-123",
+                    }
+                )
+                + "\nspawn verified: run-123 is running\n",
+                "launched: mode=bod pane=pane-123\n",
+                0,
+            ),
+            "already preparing": (
+                json.dumps(
+                    {
+                        "action": "already-preparing",
+                        "opened_at": "2026-09-17T12:34:56+00:00",
+                        "run_id": "run-123",
+                    },
+                    indent=2,
+                )
+                + "\n",
+                "already-preparing: since=2026-09-17T12:34:56+00:00\n",
+                0,
+            ),
+            "reopen failure": (
+                json.dumps(
+                    {
+                        "action": "reopened",
+                        "opened": False,
+                        "open_error": "obsidian could not open the proposal",
+                    },
+                    indent=2,
+                )
+                + "\n",
+                "reopen failed: obsidian could not open the proposal\n",
+                1,
+            ),
+        }
+
+        for mode, script in SCRIPTS.items():
+            for case, (backend_stdout, expected_stdout, expected_status) in cases.items():
+                with self.subTest(mode=mode, case=case):
+                    result = self.run_script(
+                        script,
+                        BACKEND_STDOUT=backend_stdout,
+                        BACKEND_EXIT=str(expected_status),
+                    )
+                    self.assertEqual(result.returncode, expected_status, result.stderr)
+                    self.assertEqual(result.stdout, expected_stdout)
+                    self.assertEqual((self.home / "calls").read_text().splitlines(), ["call"])
 
     def test_missing_backend_is_actionable_and_nonzero(self):
         self.backend.unlink()
