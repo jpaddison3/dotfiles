@@ -1,3 +1,4 @@
+import os
 import re
 import subprocess
 import tempfile
@@ -22,18 +23,20 @@ class RaycastScriptTests(unittest.TestCase):
         self.backend.parent.mkdir(parents=True)
         self.backend.write_text(
             "#!/bin/sh\n"
-            "printf '%s\\n' \"$#\" > \"$HOME/call-count\"\n"
+            "printf 'call\\n' >> \"$HOME/calls\"\n"
             "printf '%s\\n' \"$@\" > \"$HOME/arguments\"\n"
             "printf '%s\\n' \"${BACKEND_STDOUT:-backend ok}\"\n"
             "printf '%s\\n' \"${BACKEND_STDERR:-}\" >&2\n"
             "exit \"${BACKEND_EXIT:-0}\"\n"
         )
         self.backend.chmod(0o755)
+        (self.home / "working directory").mkdir()
 
     def tearDown(self):
         self.temp_dir.cleanup()
 
     def run_script(self, script, **extra_env):
+        (self.home / "calls").write_text("")
         env = {
             "HOME": str(self.home),
             "PATH": "/usr/bin:/bin",
@@ -48,13 +51,11 @@ class RaycastScriptTests(unittest.TestCase):
         )
 
     def test_each_script_makes_one_backend_call_with_expected_mode(self):
-        (self.home / "working directory").mkdir()
-
         for mode, script in SCRIPTS.items():
             with self.subTest(mode=mode):
                 result = self.run_script(script)
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual((self.home / "call-count").read_text(), "2\n")
+                self.assertEqual((self.home / "calls").read_text().splitlines(), ["call"])
                 self.assertEqual(
                     (self.home / "arguments").read_text().splitlines(),
                     ["--mode", mode],
@@ -62,23 +63,31 @@ class RaycastScriptTests(unittest.TestCase):
                 self.assertEqual(result.stdout, "backend ok\n")
 
     def test_backend_failure_is_forwarded_without_retry(self):
-        (self.home / "working directory").mkdir()
-        result = self.run_script(
-            SCRIPTS["auto"], BACKEND_EXIT="37", BACKEND_STDERR="backend failed"
-        )
-
-        self.assertEqual(result.returncode, 37)
-        self.assertEqual((self.home / "call-count").read_text(), "2\n")
-        self.assertIn("backend failed", result.stderr)
+        for mode, script in SCRIPTS.items():
+            with self.subTest(mode=mode):
+                result = self.run_script(
+                    script, BACKEND_EXIT="37", BACKEND_STDERR="backend failed"
+                )
+                self.assertEqual(result.returncode, 37)
+                self.assertEqual((self.home / "calls").read_text().splitlines(), ["call"])
+                self.assertEqual(result.stderr, "backend failed\n")
 
     def test_missing_backend_is_actionable_and_nonzero(self):
         self.backend.unlink()
-        (self.home / "working directory").mkdir()
-        result = self.run_script(SCRIPTS["auto"])
+        self.assert_backend_unavailable()
 
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("make install-inbox-triage", result.stderr)
-        self.assertIn("missing or not executable", result.stderr)
+    def test_nonexecutable_backend_is_actionable_and_nonzero(self):
+        self.backend.chmod(0o644)
+        self.assert_backend_unavailable()
+
+    def assert_backend_unavailable(self):
+        for mode, script in SCRIPTS.items():
+            with self.subTest(mode=mode):
+                result = self.run_script(script)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("make install-inbox-triage", result.stderr)
+                self.assertIn(str(self.backend), result.stderr)
+                self.assertEqual((self.home / "calls").read_text(), "")
 
 
 class InstallerTests(unittest.TestCase):
@@ -105,6 +114,9 @@ class InstallerTests(unittest.TestCase):
                 if path.name != unrelated.name
             }
             self.assertEqual(set(installed), {path.name for path in SCRIPTS.values()})
+            for source in SCRIPTS.values():
+                self.assertEqual(installed[source.name], source.read_bytes())
+                self.assertTrue(os.access(destination / source.name, os.X_OK))
             self.assertEqual(unrelated.read_text(), "keep me\n")
 
             second = subprocess.run(
@@ -140,8 +152,8 @@ class MetadataTests(unittest.TestCase):
             self.assertIn("# @raycast.schemaVersion 1", text)
             self.assertIn(f"# @raycast.title {expected_titles[script.name]}", text)
             self.assertIn("# @raycast.mode compact", text)
-            self.assertIn("# @raycast.packageName Inbox Triage", text)
-            self.assertNotRegex(text, r"^# @raycast\.argument\d+", re.MULTILINE)
+            self.assertNotRegex(text, re.compile(r"^# @raycast\.needsConfirmation\s+true", re.MULTILINE))
+            self.assertNotRegex(text, re.compile(r"^# @raycast\.argument\d+", re.MULTILINE))
             self.assertNotIn("@raycast.hotkey", text)
 
 
