@@ -201,7 +201,8 @@ class KeepAwakeTests(unittest.TestCase):
         self.set_thermal("Heavy")
         self.run_daemon()
 
-        self.assertEqual(self.pmset_events()[0][0], "disablesleep 0")
+        # Reset at startup (clock not yet advanced), not just by the exit cleanup.
+        self.assertEqual(self.pmset_events()[0], ("disablesleep 0", CLOCK0))
         self.assertEqual(self.enables(), [])
 
     def test_garbage_cooldown_file(self):
