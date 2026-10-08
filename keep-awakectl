@@ -32,7 +32,7 @@ human_pause() {  # echo a human-readable pause state, or nothing if not paused
   local exp; exp="$(cat "${PAUSE_FILE}" 2>/dev/null || true)"
   if [[ "${exp}" == "indefinite" ]]; then
     echo "paused indefinitely (until 'keep-awakectl resume' or reboot)"
-  elif [[ "${exp}" =~ ^[0-9]+$ ]] && (( "$(date +%s)" < exp )); then
+  elif [[ "${exp}" =~ ^[0-9]+$ ]] && (( $(date +%s) < exp )); then
     echo "paused until $(date -r "${exp}" '+%-I:%M %p')"
   else
     echo "pause expired (daemon resumes within ~10s)"
