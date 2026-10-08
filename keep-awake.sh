@@ -13,7 +13,9 @@
 # to cool down. On AC, with the lid open, or while you're actively using it, it
 # never force-sleeps — macOS's own throttling protects the hardware and it won't
 # sleep the Mac out from under an active user (incl. a docked-but-unplugged
-# machine used in clamshell with an external keyboard).
+# machine used in clamshell with an external keyboard). After any forced sleep,
+# the cooldown holds sleep *allowed* (not just the triggers off), and keep-awake
+# never engages while thermal pressure is Heavy or worse.
 #
 # Usage:
 #   keep-awake [THRESHOLD]        # Ctrl-C to stop
@@ -46,16 +48,20 @@ set -euo pipefail
 THRESHOLD="${1:-50}"
 POLL_SECONDS=10
 DIAGNOSTIC_INTERVAL_SECONDS=300  # periodic safety snapshot; avoids 10s log spam
-PAUSE_FILE="/tmp/keep-awake.pause"   # present + unexpired = temporarily allow sleep
+# The env overrides below exist for tests only (launchd gives the daemon a fixed
+# environment and sudo resets env, so they're not an escalation path).
+PAUSE_FILE="${KEEP_AWAKE_PAUSE_FILE:-/tmp/keep-awake.pause}"   # present + unexpired = temporarily allow sleep
+COOLDOWN_FILE="${KEEP_AWAKE_COOLDOWN_FILE:-/var/run/keep-awake.cooldown}"  # survives daemon restarts, cleared on reboot; root-only dir
 
 # Overheat safety knobs (see the loop below).
 TRIGGER_LEVEL="Heavy"   # force sleep at this thermal pressure or worse:
                         #   Nominal < Moderate < Heavy < Trapping < Sleeping
 THERMAL_DEBOUNCE=2      # consecutive elevated reads required before forcing sleep
-COOLDOWN_SECONDS=300    # after a forced sleep, the overheat trigger can't fire
-                        # again for this long (measured from wake) — anti-loop
-                        # safety, so a still-warm Mac can't keep sleeping itself
-                        # the moment you try to wake it
+COOLDOWN_SECONDS=300    # after a forced sleep, sleep stays allowed and the force-sleep
+                        # triggers can't fire for this long (measured from wake) —
+                        # anti-loop safety, so a still-warm Mac can't keep sleeping
+                        # itself the moment you try to wake it, nor get kept awake
+                        # while hot
 IDLE_SECONDS=60         # require no keyboard/trackpad input for this long before
                         # force-sleeping, so a docked-but-unplugged Mac used in
                         # clamshell isn't slept while you're typing on an external
@@ -68,7 +74,7 @@ LOW_BATTERY_IDLE_SECONDS=1800  # below the battery threshold, force sleep after
                                # unattended jobs and normal breaks.
 
 # Re-exec as root so the single sudo prompt happens now, at launch.
-if [[ "${EUID}" -ne 0 ]]; then
+if [[ "${EUID}" -ne 0 && "${KEEP_AWAKE_NO_SUDO:-}" != "1" ]]; then
   echo "Re-running with sudo (needed to override lid-closed sleep)…"
   exec sudo "$0" "$@"
 fi
@@ -149,7 +155,7 @@ pause_active() {
   local exp; exp="$(cat "${PAUSE_FILE}" 2>/dev/null || true)"
   [[ "${exp}" == "indefinite" ]] && return 0
   [[ "${exp}" =~ ^[0-9]+$ ]] || return 1     # malformed → not a valid pause
-  (( "$(date +%s)" < exp ))
+  (( $(date +%s) < exp ))
 }
 
 cleanup() {
@@ -158,7 +164,9 @@ cleanup() {
   pmset -a disablesleep 0 || true
   log_message "Done — the Mac can sleep normally again."
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM   # a returning TERM handler would resume the loop and re-assert
 
 # Read the OS's actual disablesleep value ("0"/"1"), so we can reconcile to it
 # rather than trusting a cached memory of what we last set. This is what makes
@@ -179,9 +187,15 @@ force_sleep_and_start_cooldown() {
   while (( ticked < 30 )); do
     sleep 2; ticked=$(( ticked + 2 ))
     # ≥8s of wall clock beyond what we actually slept ⇒ we were suspended.
-    if (( "$(date +%s)" - sleep_start - ticked >= 8 )); then break; fi
+    if (( $(date +%s) - sleep_start - ticked >= 8 )); then break; fi
   done
-  cooldown_until=$(( "$(date +%s)" + COOLDOWN_SECONDS ))
+  # no quotes inside $(( )): /bin/bash 3.2 rejects "$(…)" there (CS-2434)
+  cooldown_until=$(( $(date +%s) + COOLDOWN_SECONDS ))
+  # Persist so a daemon restart (crash, reinstall) can't skip the cooldown. A
+  # write failure must never kill the daemon (set -e).
+  { printf '%s\n' "${cooldown_until}" > "${COOLDOWN_FILE}.tmp" \
+      && mv -f "${COOLDOWN_FILE}.tmp" "${COOLDOWN_FILE}"; } 2>/dev/null \
+    || log_message "couldn't persist cooldown to ${COOLDOWN_FILE}"
   last_logged=""
 }
 
@@ -190,8 +204,27 @@ echo "Watching battery: stay awake (lid open or shut) while ≥ ${THRESHOLD}%, a
 last_logged=""   # log only when the decision changes, not every tick
 last_diagnostic_at=0                           # periodic full safety snapshot
 hot_count=0                                    # consecutive hot reads (overheat safety)
-cooldown_until=0                               # epoch until the trigger can fire again
+cooldown_until=0                               # epoch until sleep is allowed/triggers can fire again
 trigger_rank="$(thermal_rank "${TRIGGER_LEVEL}")"
+
+# Resume a cooldown from before a daemon restart. Ignore garbage, and clamp to
+# at most COOLDOWN_SECONDS from now to guard against clock skew.
+if [[ -f "${COOLDOWN_FILE}" ]]; then
+  saved="$(cat "${COOLDOWN_FILE}" 2>/dev/null || true)"
+  if [[ "${saved}" =~ ^[0-9]+$ ]]; then
+    now="$(date +%s)"
+    (( saved <= now + COOLDOWN_SECONDS )) || saved=$(( now + COOLDOWN_SECONDS ))
+    if (( saved > now )); then
+      cooldown_until="${saved}"
+      log_message "resuming cooldown after forced sleep until $(date -r "${cooldown_until}" '+%-I:%M:%S%p')"
+    fi
+  fi
+fi
+
+# Start from sleep-allowed so a disablesleep 1 left by a SIGKILLed predecessor
+# must re-pass the thermal and cooldown gates.
+set_sleep 0
+
 while true; do
   now="$(date +%s)"
   pct="$(battery_pct)"
@@ -214,7 +247,12 @@ while true; do
     if [[ -f "${PAUSE_FILE}" ]]; then
       rm -f "${PAUSE_FILE}" 2>/dev/null || true   # expired/malformed — clear it
     fi
-    if (( pct >= THRESHOLD )); then
+    if (( now < cooldown_until )); then
+      # Hold sleep allowed after a forced sleep, so a restarted or still-hot
+      # Mac isn't kept awake straight away. Constant text → logs once.
+      desired=0
+      reason="cooldown after forced sleep: allowing sleep until $(date -r "${cooldown_until}" '+%-I:%M:%S%p')"
+    elif (( pct >= THRESHOLD )); then
       desired=1; reason="battery ${pct}% (≥ ${THRESHOLD}%): keeping awake"
     else
       desired=0; below_threshold=1
@@ -236,6 +274,19 @@ while true; do
     continue
   fi
 
+  # Never (re)assert disablesleep 1 while the Mac is already hot, on any power
+  # source / lid / idle state (CS-2434). Only checked when we'd be turning the
+  # override ON, so the debounced overheat path below still governs an
+  # already-held override. Unreadable → rank 0 → fail open, as elsewhere.
+  level="not-sampled"
+  thermal_check="skipped"
+  if (( desired == 1 )) && [[ "$(current_disablesleep)" != "1" ]]; then
+    level="$(thermal_level)"; [[ -n "${level}" ]] || level="unreadable"
+    if (( $(thermal_rank "${level}") >= trigger_rank )); then
+      desired=0; reason="thermal ${level} (≥ ${TRIGGER_LEVEL}): not enabling keep-awake"
+    fi
+  fi
+
   # Overheat safety: only while we're keeping the Mac awake (desired=1), on
   # battery, with the lid shut, AND unattended (no recent input) — that's the
   # case worth interrupting for (lid shut in a bag, no power, no airflow). Lid
@@ -245,8 +296,6 @@ while true; do
   # and force sleep. The debounce keeps a momentary spike from slamming it shut;
   # the cooldown caps this to once per COOLDOWN_SECONDS so a still-warm Mac can't
   # keep sleeping itself the moment you wake it.
-  level="not-sampled"
-  thermal_check="skipped"
   if (( desired != 1 )); then
     thermal_check="skipped:not-keeping-awake"
   elif [[ "${source}" != "battery" ]]; then
@@ -261,9 +310,9 @@ while true; do
     thermal_check="skipped:cooldown"
   else
     thermal_check="sampled"
-    level="$(thermal_level)"
+    [[ "${level}" != "not-sampled" ]] || level="$(thermal_level)"   # reuse this pass's gate sample
     [[ -n "${level}" ]] || level="unreadable"
-    if (( "$(thermal_rank "${level:-}")" >= trigger_rank )); then
+    if (( $(thermal_rank "${level:-}") >= trigger_rank )); then
       hot_count=$(( hot_count + 1 ))
     else
       hot_count=0
@@ -292,7 +341,7 @@ while true; do
 
   if (( state_changed == 1 || now - last_diagnostic_at >= DIAGNOSTIC_INTERVAL_SECONDS )); then
     idle_display="${idle:-unknown}"
-    log_message "diagnostics: battery=${pct}%; power=${source}; lid=${lid}; idle=${idle_display}s; thermal=${level}; thermal_check=${thermal_check}; hot_count=${hot_count}/${THERMAL_DEBOUNCE}; desired_disablesleep=${desired}; actual_disablesleep=$(current_disablesleep)"
+    log_message "diagnostics: battery=${pct}%; power=${source}; lid=${lid}; idle=${idle_display}s; thermal=${level}; thermal_check=${thermal_check}; hot_count=${hot_count}/${THERMAL_DEBOUNCE}; desired_disablesleep=${desired}; actual_disablesleep=$(current_disablesleep); cooldown_remaining=$(( cooldown_until > now ? cooldown_until - now : 0 ))s"
     last_diagnostic_at="${now}"
   fi
 
