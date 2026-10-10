@@ -74,6 +74,11 @@ mkdir -p ~/.local/codex-shim
 ln -sf $SCRIPTPATH/codex-shim/codex-mirror ~/.local/codex-shim/codex
 # orca-open-guard: keep `orca open` from raising the Orca window when it is already running.
 ln -sf $SCRIPTPATH/codex-shim/orca-open-guard ~/.local/codex-shim/orca
+# claude-account: per-repo Claude account (CLAUDE_CONFIG_DIR) as a `claude` PATH shim, so
+# launchers that skip interactive zsh get the mapping too. Reads ~/.config/claude-accounts.
+ln -sf $SCRIPTPATH/codex-shim/claude-account ~/.local/codex-shim/claude
+mkdir -p ~/.config
+ln -sf $SCRIPTPATH/claude-accounts ~/.config/claude-accounts
 
 # Codex skills
 mkdir -p ~/.codex/skills

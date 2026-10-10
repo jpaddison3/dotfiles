@@ -51,6 +51,10 @@ unsetopt share_history
 # that's where npm installs the real binary, and nvm prepends itself to the very
 # front of PATH. Outside a Claude session the shim is a transparent passthrough,
 # so plain `codex` from the CLI is unchanged.
+# The same dir holds the `claude` shim (claude-account), which picks the Claude
+# account (CLAUDE_CONFIG_DIR) per repo from ~/.config/claude-accounts. It lives
+# on PATH rather than in a zsh function so launchers that skip interactive zsh
+# (Orca panes, pane restore, estra, subprocesses) get the same mapping.
 # Details: ~/Documents/dotfiles/codex-shim/README.md
 #
 # ~/.local/bin gets the same treatment so the native Claude Code install
@@ -70,39 +74,4 @@ unsetopt share_history
   done
   (( inserted )) || out=($HOME/.local/codex-shim $HOME/.local/bin $out)  # no nvm dir? front
   path=($out)
-}
-
-# Per-repo Claude account. Account choice is CLAUDE_CONFIG_DIR at launch, so a
-# wrapper is the only way to make it per-repo. Default (~/.claude) is the
-# personal-Max login on the work email.
-#   ~/.claude-team  — "80,000 Hours" Team org (work email)
-#   ~/.claude-gmail — johnpaddison@gmail.com account
-# An explicit CLAUDE_CONFIG_DIR wins over the repo mapping, e.g.:
-#   CLAUDE_CONFIG_DIR=~/.claude-team claude
-claude() {
-  if [[ -n "$CLAUDE_CONFIG_DIR" ]]; then
-    command claude "$@"
-    return
-  fi
-  local -a gmail_repos=(
-    "$HOME/Documents/dotfiles"
-    "$HOME/personal-coding/personal-travel"
-    "$HOME/personal-coding/todoist-quick-add"
-    "$HOME/personal-coding/dharma"
-    "$HOME/personal-coding/gdoc"
-    "$HOME/personal-coding/betterheap"
-    "$HOME/personal-coding/claude-life"
-  )
-  local repo
-  for repo in $gmail_repos; do
-    if [[ "$PWD" == "$repo"* ]]; then
-      CLAUDE_CONFIG_DIR="$HOME/.claude-gmail" command claude "$@"
-      return
-    fi
-  done
-  if [[ "$PWD" == "$HOME/80k/ai-products-research"* ]]; then
-    CLAUDE_CONFIG_DIR="$HOME/.claude-team" command claude "$@"
-  else
-    command claude "$@"
-  fi
 }

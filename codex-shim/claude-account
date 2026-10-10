@@ -1,0 +1,231 @@
+#!/usr/bin/env bash
+# claude-account — pick the Claude Code account (CLAUDE_CONFIG_DIR) per repo,
+# then exec the real `claude`.
+#
+# Why this exists
+#   Account choice is CLAUDE_CONFIG_DIR at launch. A zsh function only covers
+#   interactive zsh; Orca panes (`zsh -l`), pane restore, estra and subprocesses
+#   all skip it and silently land on the default (personal) account. As a PATH
+#   shim (symlinked as `claude` into ~/.local/codex-shim/) it catches every
+#   launcher that finds `claude` via PATH.
+#
+# Account table: ~/.config/claude-accounts (symlink to dotfiles/claude-accounts)
+#   One `<repo-path> <config-dir>` pair per line, whitespace-separated, leading
+#   `~` expands to $HOME, `#` comments and blank lines ignored. The default
+#   account (~/.claude) never appears: no match means "default".
+#
+# Resolution order
+#   1. CLAUDE_CONFIG_DIR already set and non-empty -> pass through untouched.
+#   2. `--resume <id>` / `--resume=<id>` / `-r <id>` -> the account whose config
+#      dir holds projects/*/<id>.jsonl (a transcript only resumes under the
+#      account that holds it). Several holders: prefer the cwd's account.
+#   3. Repo identity: the main checkout of the git repo containing cwd (so linked
+#      worktrees anywhere on disk map like their main repo), else cwd itself.
+#      A table path P matches key K when K == P or K starts with "P/"; longest
+#      P wins.
+#   4. No match -> default account: CLAUDE_CONFIG_DIR stays UNSET (never set to
+#      ~/.claude; Claude Code may key credential storage on it being set).
+#
+# When remapping to a non-default account, an inherited CLAUDE_CODE_OAUTH_TOKEN
+# is dropped: it is the personal account's and would override the dir's login.
+#
+# Fails open: any mapping problem prints a one-line `claude-account: ...`
+# warning to stderr and continues as if unmatched.
+#
+# Env knobs
+#   CLAUDE_ACCOUNT_DEBUG=1   print real binary, chosen dir, rule and token
+#                            handling to stderr, do NOT exec
+
+set -u
+unset CDPATH
+
+warn() { echo "claude-account: $*" >&2; }
+
+# 1. Resolve the real claude binary, skipping this script and its own directory
+#    (same self-skip as codex-mirror, so the symlink can sit on PATH as `claude`
+#    without execing itself in a loop).
+SELF_REF="${BASH_SOURCE[0]:-$0}"
+SELF_DIR="$(cd "$(dirname "$SELF_REF")" 2>/dev/null && pwd -P || true)"
+SELF_PATH=""
+[ -n "$SELF_DIR" ] && SELF_PATH="$SELF_DIR/$(basename "$SELF_REF")"
+REAL_CLAUDE=""
+while IFS= read -r cand; do
+  [ -n "$cand" ] || continue
+  [ -n "$SELF_PATH" ] && [ "$cand" -ef "$SELF_PATH" ] 2>/dev/null && continue
+  cdir="$(cd "$(dirname "$cand")" 2>/dev/null && pwd -P || true)"
+  [ -n "$SELF_DIR" ] && [ "$cdir" = "$SELF_DIR" ] && continue
+  REAL_CLAUDE="$cand"; break
+done < <(which -a claude 2>/dev/null || true)
+if [ -z "$REAL_CLAUDE" ]; then
+  echo "claude: command not found" >&2
+  exit 127
+fi
+
+HOME_DIR="${HOME:-}"
+TABLE="$HOME_DIR/.config/claude-accounts"
+DEFAULT_DIR="$HOME_DIR/.claude"
+
+CHOSEN=""      # config dir, empty = default account
+RULE="none"    # explicit | resume | repo | cwd | none
+
+expand_tilde() {  # echoes $1 with a leading ~ expanded to $HOME
+  case "$1" in
+    "~") printf '%s' "$HOME_DIR" ;;
+    "~/"*) printf '%s' "$HOME_DIR/${1#\~/}" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+physical() {  # echoes the symlink-resolved path of directory $1, or nothing
+  (cd "$1" 2>/dev/null && pwd -P) || true
+}
+
+if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
+  RULE="explicit"
+  CHOSEN="$CLAUDE_CONFIG_DIR"
+else
+  # 2. Load the table (parallel arrays: physical repo path, config dir).
+  TBL_P=(); TBL_D=(); ALL_D=()   # ALL_D: every config dir, even for repos not checked out here
+  if [ -r "$TABLE" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+      case "$line" in ''|\#*) continue ;; esac
+      read -r p d extra <<EOF
+$line
+EOF
+      case "${p:-}" in ''|\#*) continue ;; esac   # whitespace-only line
+      if [ -z "${d:-}" ] || [ -n "${extra:-}" ]; then
+        warn "skipping malformed line in $TABLE: $line"; continue
+      fi
+      p="$(expand_tilde "$p")"; d="$(expand_tilde "$d")"
+      case "$p" in /*) ;; *) warn "skipping malformed line in $TABLE: $line"; continue ;; esac
+      case "$d" in /*) ;; *) warn "skipping malformed line in $TABLE: $line"; continue ;; esac
+      ALL_D+=("${d%/}")
+      pp="$(physical "$p")"
+      [ -n "$pp" ] || continue   # repo not checked out on this machine
+      TBL_P+=("$pp"); TBL_D+=("${d%/}")
+    done < "$TABLE"
+  else
+    warn "account table $TABLE missing or unreadable; using the default account"
+  fi
+
+  # match_key K -> sets MATCH_IDX to the longest matching table entry, or -1.
+  MATCH_IDX=-1
+  match_key() {
+    local k="$1" i best=-1 bestlen=-1 pp
+    MATCH_IDX=-1
+    i=0
+    while [ "$i" -lt "${#TBL_P[@]}" ]; do
+      pp="${TBL_P[$i]}"
+      if [ "$k" = "$pp" ] || [ "${k#"$pp"/}" != "$k" ]; then
+        if [ "${#pp}" -gt "$bestlen" ]; then best=$i; bestlen=${#pp}; fi
+      fi
+      i=$((i + 1))
+    done
+    MATCH_IDX=$best
+  }
+
+  # 3. Repo identity -> cwd account.
+  CWD_DIR=""; CWD_RULE="none"
+  if [ "${#TBL_P[@]}" -gt 0 ]; then
+    cwd_phys="$(pwd -P 2>/dev/null || true)"
+    repo_key=""
+    if command -v git >/dev/null 2>&1; then
+      gcd="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+      if [ -n "$gcd" ]; then
+        repo_key="$(physical "$(dirname "$gcd")")"
+      fi
+    else
+      warn "git not found; matching on the current directory only"
+    fi
+    idx=-1
+    if [ -n "$repo_key" ]; then
+      match_key "$repo_key"; idx=$MATCH_IDX
+      [ "$idx" -ge 0 ] && CWD_RULE="repo"
+    fi
+    if [ "$idx" -lt 0 ] && [ -n "$cwd_phys" ]; then
+      match_key "$cwd_phys"; idx=$MATCH_IDX
+      [ "$idx" -ge 0 ] && CWD_RULE="cwd"
+    fi
+    if [ "$idx" -ge 0 ]; then
+      if [ -d "${TBL_D[$idx]}" ]; then
+        CWD_DIR="${TBL_D[$idx]}"
+      else
+        warn "mapped config dir ${TBL_D[$idx]} does not exist; using the default account"
+        CWD_RULE="none"
+      fi
+    fi
+  fi
+  CHOSEN="$CWD_DIR"; RULE="$CWD_RULE"
+
+  # 4. Resume follows the transcript. Bare --resume (picker) and -c are ignored.
+  resume_id=""; expect_id=0
+  for arg in "$@"; do
+    if [ "$expect_id" = 1 ]; then
+      expect_id=0
+      case "$arg" in -*) ;; *) resume_id="$arg"; continue ;; esac
+    fi
+    case "$arg" in
+      --) break ;;
+      --resume=*) resume_id="${arg#--resume=}" ;;
+      --resume|-r) expect_id=1 ;;
+    esac
+  done
+  case "$resume_id" in */*) resume_id="" ;; esac
+  if [ -n "$resume_id" ]; then
+    holders=()   # config dirs ("" = default) holding the transcript
+    has_transcript() {  # has_transcript DIR
+      local f
+      for f in "$1"/projects/*/"$resume_id".jsonl; do
+        [ -e "$f" ] && return 0
+      done
+      return 1
+    }
+    has_transcript "$DEFAULT_DIR" && holders+=("")
+    seen=""
+    i=0
+    while [ "$i" -lt "${#ALL_D[@]}" ]; do
+      d="${ALL_D[$i]}"; i=$((i + 1))
+      case "
+$seen
+" in *"
+$d
+"*) continue ;; esac
+      seen="$seen
+$d"
+      has_transcript "$d" && holders+=("$d")
+    done
+    if [ "${#holders[@]}" -eq 1 ]; then
+      CHOSEN="${holders[0]}"; RULE="resume"
+    elif [ "${#holders[@]}" -gt 1 ]; then
+      pick="${holders[0]}"
+      for h in "${holders[@]}"; do
+        if [ "$h" = "$CWD_DIR" ]; then pick="$h"; break; fi
+        [ -z "$h" ] && pick=""   # default beats other non-cwd holders
+      done
+      CHOSEN="$pick"; RULE="resume"
+    fi
+  fi
+fi
+
+# 5. Apply. Default account = CLAUDE_CONFIG_DIR unset; remapped = drop the
+#    personal OAuth token so it can't override the chosen dir's login.
+TOKEN_STATE="kept"
+[ -n "${CLAUDE_CODE_OAUTH_TOKEN+x}" ] || TOKEN_STATE="absent"
+if [ "$RULE" = "explicit" ]; then
+  :
+elif [ -n "$CHOSEN" ]; then
+  export CLAUDE_CONFIG_DIR="$CHOSEN"
+  if [ "$TOKEN_STATE" = "kept" ]; then
+    unset CLAUDE_CODE_OAUTH_TOKEN; TOKEN_STATE="dropped"
+  fi
+else
+  unset CLAUDE_CONFIG_DIR
+fi
+
+if [ -n "${CLAUDE_ACCOUNT_DEBUG:-}" ]; then
+  echo "claude-account: real=$REAL_CLAUDE" >&2
+  echo "claude-account: config=${CHOSEN:-default} rule=$RULE token=$TOKEN_STATE" >&2
+  exit 0
+fi
+
+exec "$REAL_CLAUDE" "$@"
