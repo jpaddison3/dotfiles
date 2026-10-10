@@ -126,7 +126,8 @@ Resolution order:
 
 1. `CLAUDE_CONFIG_DIR` already set → pass through untouched (token included).
 2. `--resume <id>` / `--resume=<id>` / `-r <id>` → the account whose config dir
-   holds `projects/*/<id>.jsonl`. Several holders: the cwd's account, else default.
+   holds `projects/*/<id>.jsonl`. Several holders: the cwd's account, else default
+   if it holds one, else the first holder in table order.
 3. Otherwise the git repo's main checkout (parent of `--git-common-dir`, so linked
    worktrees anywhere map like their repo), else the cwd. Longest path match on a
    directory boundary wins.
