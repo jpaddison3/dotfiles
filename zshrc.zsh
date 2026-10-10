@@ -91,6 +91,7 @@ claude() {
     "$HOME/personal-coding/dharma"
     "$HOME/personal-coding/gdoc"
     "$HOME/personal-coding/betterheap"
+    "$HOME/personal-coding/claude-life"
   )
   local repo
   for repo in $gmail_repos; do
@@ -99,7 +100,7 @@ claude() {
       return
     fi
   done
-  if [[ "$PWD" == "$HOME/personal-coding/claude-life"* ]]; then
+  if [[ "$PWD" == "$HOME/80k/ai-products-research"* ]]; then
     CLAUDE_CONFIG_DIR="$HOME/.claude-team" command claude "$@"
   else
     command claude "$@"
