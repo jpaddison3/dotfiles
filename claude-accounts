@@ -1,0 +1,17 @@
+# Per-repo Claude Code account table, read by codex-shim/claude-account.
+# Symlinked to ~/.config/claude-accounts by newcomputer.bash.
+# Format: <repo-path> <config-dir>   (whitespace-separated; leading ~ = $HOME)
+# Matches the repo's main checkout, so linked worktrees map like their repo.
+# The default account (~/.claude) never appears here: no match = default.
+
+# johnpaddison@gmail.com
+~/Documents/dotfiles                  ~/.claude-gmail
+~/personal-coding/personal-travel     ~/.claude-gmail
+~/personal-coding/todoist-quick-add   ~/.claude-gmail
+~/personal-coding/dharma              ~/.claude-gmail
+~/personal-coding/gdoc                ~/.claude-gmail
+~/personal-coding/betterheap          ~/.claude-gmail
+~/personal-coding/claude-life         ~/.claude-gmail
+
+# "80,000 Hours" Team org (work email)
+~/80k/ai-products-research            ~/.claude-team

@@ -109,3 +109,34 @@ A second PATH shim, symlinked as `orca`. It rewrites `orca open` to `orca status
 whenever Orca is already running, because `orca open` raises the Orca window
 (focus steal) and Codex agents run it reflexively. Everything else passes
 through. `ORCA_OPEN_GUARD=0` bypasses it. See the script header for details.
+
+## Also in this dir: `claude-account`
+
+A third PATH shim, symlinked as `claude`. It sets `CLAUDE_CONFIG_DIR` from the
+repo that owns the current directory, then execs the real Claude Code. It replaces
+the old `claude()` zsh function, which only ran in interactive zsh and matched on
+a `$PWD` prefix (so Orca panes, pane restore, estra and worktrees all missed).
+
+The repo → account table is `claude-accounts` in this repo, symlinked to
+`~/.config/claude-accounts` (one `<repo-path> <config-dir>` per line, `~` expands,
+`#` comments). The default account (`~/.claude`) is never listed: no match leaves
+`CLAUDE_CONFIG_DIR` **unset** (never set to `~/.claude`).
+
+Resolution order:
+
+1. `CLAUDE_CONFIG_DIR` already set → pass through untouched (token included).
+2. `--resume <id>` / `--resume=<id>` / `-r <id>` → the account whose config dir
+   holds `projects/*/<id>.jsonl`. Several holders: the cwd's account, else default
+   if it holds one, else the first holder in table order.
+3. Otherwise the git repo's main checkout (parent of `--git-common-dir`, so linked
+   worktrees anywhere map like their repo), else the cwd. Longest path match on a
+   directory boundary wins.
+
+When it remaps to a non-default account it unsets `CLAUDE_CODE_OAUTH_TOKEN` (the
+personal account's token would override the chosen dir's login). It fails open:
+a missing/malformed table, `git` failure, or missing mapped dir prints a
+`claude-account: …` warning and launches on the default account.
+
+`CLAUDE_ACCOUNT_DEBUG=1 claude` prints the real binary, chosen dir, rule
+(`explicit`/`resume`/`repo`/`cwd`/`none`) and token handling, then exits without
+launching. Tests: `tests/test_claude_account.py`.
