@@ -75,3 +75,7 @@ unsetopt share_history
   (( inserted )) || out=($HOME/.local/codex-shim $HOME/.local/bin $out)  # no nvm dir? front
   path=($out)
 }
+
+# Added by LM Studio CLI (lms)
+export PATH="$PATH:/Users/jpaddison/.lmstudio/bin"
+# End of LM Studio CLI section

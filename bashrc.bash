@@ -118,3 +118,7 @@ export PATH="$PATH:/Applications/Docker.app/Contents/Resources/bin"
 
 # Clean up PATH duplicates
 dedupe_path
+
+# Added by LM Studio CLI (lms)
+export PATH="$PATH:/Users/jpaddison/.lmstudio/bin"
+# End of LM Studio CLI section
