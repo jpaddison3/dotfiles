@@ -122,6 +122,14 @@ ln -f $SCRIPTPATH/com.jpaddison.pull-granola.plist ~/Library/LaunchAgents/com.jp
 launchctl bootout gui/$(id -u)/com.jpaddison.pull-granola 2>/dev/null || true
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jpaddison.pull-granola.plist
 
+# Nightly Codex session expiry (Codex has no retention setting; Claude Code's
+# is cleanupPeriodDays in each profile's settings.json). Same hard-link rules.
+mkdir -p ~/.local/share/codex-expire-sessions
+ln -f $SCRIPTPATH/codex-expire-sessions.sh ~/.local/bin/codex-expire-sessions.sh
+ln -f $SCRIPTPATH/com.jpaddison.codex-expire-sessions.plist ~/Library/LaunchAgents/com.jpaddison.codex-expire-sessions.plist
+launchctl bootout gui/$(id -u)/com.jpaddison.codex-expire-sessions 2>/dev/null || true
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jpaddison.codex-expire-sessions.plist
+
 # Software installation:
 # Manual install: pure prompt (brew failed), ohmyzsh, cargo, nvm, yarn
 brew install tmux tmuxinator reattach-to-user-namespace neovim coreutils

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jpaddison.codex-expire-sessions</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/jpaddison/.local/bin/codex-expire-sessions.sh</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <!-- Nightly at 3:00am local; launchd fires a missed run on wake. -->
+    <key>StartCalendarInterval</key>
+    <dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>0</integer></dict>
+
+    <key>LowPriorityIO</key>
+    <true/>
+    <key>Nice</key>
+    <integer>10</integer>
+
+    <!-- The script logs to ~/.local/share/codex-expire-sessions/codex-expire-sessions.log;
+         these catch anything it fails to capture. -->
+    <key>StandardOutPath</key>
+    <string>/Users/jpaddison/.local/share/codex-expire-sessions/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/jpaddison/.local/share/codex-expire-sessions/launchd.err.log</string>
+</dict>
+</plist>
