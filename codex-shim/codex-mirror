@@ -23,7 +23,6 @@ set -euo pipefail
 if [ -z "${CODEX_HOME:-}" ]; then
   case "$PWD" in
     "$HOME/personal-coding/dotfiles"|"$HOME/personal-coding/dotfiles"/*|\
-    "$HOME/Documents/dotfiles"|"$HOME/Documents/dotfiles"/*|\
     "$HOME/personal-coding/claude-life"|"$HOME/personal-coding/claude-life"/*|\
     "$HOME/personal-coding/personal-travel"|"$HOME/personal-coding/personal-travel"/*|\
     "$HOME/personal-coding/todoist-quick-add"|"$HOME/personal-coding/todoist-quick-add"/*|\
