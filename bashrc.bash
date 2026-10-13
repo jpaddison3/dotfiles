@@ -25,7 +25,7 @@ dedupe_path() {
 export PROMPT_COMMAND='if [ "$(id -u)" -ne 0 ]; then echo "$(date "+%Y-%m-%d.%H:%M:%S") $(pwd) $(history 1)" >> ~/.logs/bash-history-$(date "+%Y-%m-%d").log; fi'
 
 # And allow searching
-alias loggrep="$HOME/Documents/dotfiles/loggrep.bash"
+alias loggrep="$HOME/personal-coding/dotfiles/loggrep.bash"
 
 # basic aliases
 alias flushdnscache='sudo killall -HUP mDNSResponder && echo "DNS caches flushed"'
@@ -71,7 +71,7 @@ PERL_MM_OPT="INSTALL_BASE=/Users/jpaddison/perl5"
 export PERL_MM_OPT
 
 ## git
-alias gitstashstaged="$HOME/Documents/dotfiles/git_stash_staged.bash"
+alias gitstashstaged="$HOME/personal-coding/dotfiles/git_stash_staged.bash"
 
 # Rust
 export PATH="$HOME/.cargo/bin:$PATH"

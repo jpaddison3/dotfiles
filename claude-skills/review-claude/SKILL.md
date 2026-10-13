@@ -63,7 +63,7 @@ Also read the project's `CLAUDE.md` files — check the project root and `~/.cla
 When running from Claude: Use the **Agent** tool to launch **all six agents concurrently** in a single message. This ensures targeted reviews and the parallelism maintains speed.
 
 When running from Codex: use the global script
-`~/Documents/dotfiles/run-claude-reviews.sh`, passing `--base <branch>` when a
+`~/personal-coding/dotfiles/run-claude-reviews.sh`, passing `--base <branch>` when a
 base branch is specified and `--mini` in mini mode. The script shells out to
 Claude in parallel for the six review areas below and handles streaming logs,
 timeouts, and output aggregation.

@@ -76,7 +76,7 @@ The shim is on PATH, but you can also call the script directly:
 
 ```bash
 ~/.local/codex-shim/codex review --uncommitted                          # via the shim
-/Users/jpaddison/Documents/dotfiles/codex-shim/codex-mirror exec "..."  # the script
+/Users/jpaddison/personal-coding/dotfiles/codex-shim/codex-mirror exec "..."  # the script
 ```
 
 ### Knobs

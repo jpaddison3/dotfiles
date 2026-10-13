@@ -57,9 +57,9 @@ support allows:
    base branch if specified.
 2. **Remote review fetch** — run:
    ```
-   ~/Documents/dotfiles/fetch-pr-reviews.py <pr-url-or-auto>
+   ~/personal-coding/dotfiles/fetch-pr-reviews.py <pr-url-or-auto>
    ```
-   If no PR URL was provided in arguments, just run `~/Documents/dotfiles/fetch-pr-reviews.py` with no args (it auto-detects from the current branch).
+   If no PR URL was provided in arguments, just run `~/personal-coding/dotfiles/fetch-pr-reviews.py` with no args (it auto-detects from the current branch).
 
 #### Mini mode
 
@@ -127,7 +127,7 @@ If it **is** a product repo, write a descriptive PR summary for the product rese
 
 2. Copy it to the product research folder:
    ```
-   ~/Documents/dotfiles/copy-to-research.sh notes/YYYY-MM-DD-pr-NNN-slug.md
+   ~/personal-coding/dotfiles/copy-to-research.sh notes/YYYY-MM-DD-pr-NNN-slug.md
    ```
 
 ### Output handling

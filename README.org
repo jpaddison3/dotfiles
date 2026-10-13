@@ -3,7 +3,7 @@ Welcome to the repository where I keep my configuration files. This repository i
 ** Tools
 As of 2020-08, I use vscode (with vim emulation) for my editor. bash in iTerm2 is my shell. I program primarily in TypeScript. My favorite editor from a UI perspective was spacemacs. I really want the ~<leader> key key~ pattern to catch on.
 ** Setup
-Run `./newcomputer.bash` to set up symlinks and configurations on a new machine. This script will:
+Clone to ~~/personal-coding/dotfiles~, not anywhere under ~~/Documents~: macOS privacy protection intermittently refuses reads there, which breaks every symlinked config file. Run `./newcomputer.bash` to set up symlinks and configurations on a new machine. This script will:
 - Create symlinks for shell configurations (bash, zsh)
 - Set up tmux and tmuxinator configurations
 - Link git helpers

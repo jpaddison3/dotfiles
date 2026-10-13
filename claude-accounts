@@ -5,6 +5,8 @@
 # The default account (~/.claude) never appears here: no match = default.
 
 # johnpaddison@gmail.com
+~/personal-coding/dotfiles            ~/.claude-gmail
+# Pre-CS-2581 location; drop once ~/Documents/dotfiles (compat symlink) is gone.
 ~/Documents/dotfiles                  ~/.claude-gmail
 ~/personal-coding/personal-travel     ~/.claude-gmail
 ~/personal-coding/todoist-quick-add   ~/.claude-gmail

@@ -8,6 +8,15 @@ set -euox pipefail
 # https://stackoverflow.com/questions/4774054/reliable-way-for-a-bash-script-to-get-the-full-path-to-itself
 SCRIPTPATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
+# Keep this checkout out of ~/Documents (and ~/Desktop, ~/Downloads): macOS privacy
+# protection (TCC) intermittently refuses reads there, and everything below symlinks
+# live config — Claude hooks, the global gitignore, the `claude` shim — into it (CS-2581).
+case "$SCRIPTPATH" in
+  "$HOME"/Documents/*|"$HOME"/Desktop/*|"$HOME"/Downloads/*)
+    echo "Clone dotfiles outside ~/Documents, ~/Desktop and ~/Downloads (e.g. ~/personal-coding/dotfiles)" >&2
+    exit 1 ;;
+esac
+
 # Terminal environment
 ln -sf $SCRIPTPATH/bashrc.bash ~/.bashrc
 ln -sf $SCRIPTPATH/bash_profile.bash ~/.bash_profile

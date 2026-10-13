@@ -12,7 +12,7 @@
 # nothing sensitive lives in this file. Safe for a public repo.
 #
 # Bind this script to a BetterTouchTool hotkey via "Execute Shell Script":
-#   /Users/jpaddison/Documents/dotfiles/clip-to-asana.sh
+#   /Users/jpaddison/personal-coding/dotfiles/clip-to-asana.sh
 
 set -euo pipefail
 

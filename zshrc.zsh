@@ -19,7 +19,7 @@ setopt INC_APPEND_HISTORY
 setopt EXTENDED_HISTORY
 
 alias loggrepz='history -E 1 | rg'
-alias fix-chrome-mcp='~/Documents/dotfiles/fix-chrome-mcp.sh'
+alias fix-chrome-mcp='~/personal-coding/dotfiles/fix-chrome-mcp.sh'
 
 # # git completion
 # zstyle ':completion:*:*:git:*' script ~/.zsh/git-completion.bash
@@ -55,7 +55,7 @@ unsetopt share_history
 # account (CLAUDE_CONFIG_DIR) per repo from ~/.config/claude-accounts. It lives
 # on PATH rather than in a zsh function so launchers that skip interactive zsh
 # (Orca panes, pane restore, estra, subprocesses) get the same mapping.
-# Details: ~/Documents/dotfiles/codex-shim/README.md
+# Details: ~/personal-coding/dotfiles/codex-shim/README.md
 #
 # ~/.local/bin gets the same treatment so the native Claude Code install
 # (~/.local/bin/claude) always beats a stray npm-global copy in nvm's bin —

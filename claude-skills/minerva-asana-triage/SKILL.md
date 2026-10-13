@@ -239,7 +239,7 @@ Each Agent dispatch:
 
 - **subagent_type**: `general-purpose`
 - **Do NOT use `isolation: worktree`** — the worktree is pre-created at `../triage-bug-<gid>`.
-- **prompt**: read `~/Documents/dotfiles/claude-skills/minerva-asana-triage/prompts/per-bug-subagent.md` and substitute the placeholders:
+- **prompt**: read `~/personal-coding/dotfiles/claude-skills/minerva-asana-triage/prompts/per-bug-subagent.md` and substitute the placeholders:
   - `{{WORKTREE_PATH}}` — absolute path to `../triage-bug-<gid>`
   - `{{BUG_GID}}`
   - `{{BUG_SPEC_PATH}}` — absolute path to `bug-spec.json`

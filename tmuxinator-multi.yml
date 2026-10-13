@@ -31,7 +31,7 @@ windows:
       root: ~/personal-coding
       panes:
         -
-        - cd ../Documents/dotfiles
+        - cd dotfiles
   - misc:
       layout: even-vertical
       root: ~
