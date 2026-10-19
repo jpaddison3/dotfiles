@@ -15,6 +15,17 @@ STUBS = {
     "pmset": """#!/bin/sh
 d="$STUB_DIR"
 case "$1 $2" in
+  "-g systemstate")
+    if [ -f "$d/fail_wake" ]; then echo 'Current System Capabilities are: CPU Graphics'; exit 1; fi
+    if [ -f "$d/wake_delay" ]; then
+      echo $(( $(cat "$d/clock") + $(cat "$d/wake_delay") )) > "$d/clock"
+      : > "$d/wake_delay.done"
+    fi
+    if [ -f "$d/wake_sequence" ]; then
+      head -n 1 "$d/wake_sequence"
+      tail -n +2 "$d/wake_sequence" > "$d/wake.tmp" && mv "$d/wake.tmp" "$d/wake_sequence"
+    elif [ -f "$d/wake" ]; then cat "$d/wake"; else echo 'Current System Capabilities are: CPU Graphics'; fi
+    ;;
   "-g batt")
     status="$(cat "$d/battery_status")"
     [ ! -f "$d/battery_status_sequence" ] || status="$(head -n 1 "$d/battery_status_sequence")"
@@ -29,6 +40,7 @@ case "$1 $2" in
     printf ' SleepDisabled\\t\\t%s\\n' "$(cat "$d/state")"
     ;;
   "-a disablesleep")
+    if [ -f "$d/fail_setting" ] && [ "$3" = "1" ]; then exit 1; fi
     echo "$3" > "$d/state"
     echo "disablesleep $3 @$(cat "$d/clock")" >> "$d/pmset.log"
     ;;
@@ -83,6 +95,10 @@ fi
 if [ -f "$d/power_sequence" ]; then
   tail -n +2 "$d/power_sequence" > "$d/power_sequence.tmp" && mv "$d/power_sequence.tmp" "$d/power_sequence"
 fi
+if [ -f "$d/external_override_after_sleep" ]; then
+  echo 1 > "$d/state"
+  : > "$d/battery"
+fi
 [ "$n" -lt "$(cat "$d/max_sleeps")" ] || exit 99
 """,
 }
@@ -110,6 +126,7 @@ class KeepAwakeTests(unittest.TestCase):
         self.write("lid", "No")
         self.write("idle", 0)
         self.write("thermal", "Nominal")
+        self.write("wake", "Current System Capabilities are: CPU Graphics")
         (self.dir / "pmset.log").write_text("")
 
     def tearDown(self):
@@ -226,6 +243,164 @@ class KeepAwakeTests(unittest.TestCase):
         # Reset at startup (clock not yet advanced), not just by the exit cleanup.
         self.assertEqual(self.pmset_events()[0], ("disablesleep 0", CLOCK0))
         self.assertEqual(self.enables(), [])
+
+    def test_partial_wake_leaves_inherited_override_cleared(self):
+        self.write("state", 1)
+        self.write("wake", "Current System Capabilities are: CPU Network")
+        self.write("max_sleeps", 5)
+        output = self.run_daemon()
+        self.assertIn("wake partial: allowing sleep", output)
+        self.assertEqual(self.enables(), [])
+
+    def test_unknown_wake_never_enables_even_if_battery_unreadable(self):
+        self.write("wake", "Current Power State: 1")
+        self.write("battery", "")
+        self.write("max_sleeps", 4)
+        output = self.run_daemon()
+        self.assertIn("wake unknown: allowing sleep", output)
+        self.assertEqual(self.enables(), [])
+
+    def test_failed_wake_command_is_unknown_even_with_output(self):
+        self.write("fail_wake", 1)
+        self.write("max_sleeps", 3)
+        output = self.run_daemon()
+        self.assertIn("wake unknown: allowing sleep", output)
+        self.assertEqual(self.enables(), [])
+
+    def test_malformed_capabilities_are_unknown(self):
+        for malformed in (
+            "CPU Graphics",
+            "Current System Capabilities are: Graphics",
+            "Current System Capabilities are: CPU Graphics\nCurrent System Capabilities are: CPU",
+            "Current System Capabilities are: CPU Graphics\nDesired State: 2\nSystem State is changing to Sleep",
+            "Current System Capabilities are: CPU Graphics\nSystem is waking from sleep",
+            "Current System Capabilities are: CPU No Graphics",
+            "Current System Capabilities are: NotCPU Graphics",
+        ):
+            with self.subTest(malformed=malformed):
+                self.write("wake", malformed)
+                self.write("max_sleeps", 2)
+                output = self.run_daemon()
+                self.assertIn("wake unknown: allowing sleep", output)
+                self.assertEqual(self.enables(), [])
+                self.write("clock", CLOCK0)
+                self.write("sleep_count", 0)
+                self.write("state", 0)
+                self.write("max_sleeps", 40)
+                (self.dir / "pmset.log").write_text("")
+
+    def test_fullwake_with_display_off_remains_capable(self):
+        self.write("wake", "Current System Capabilities are: CPU Graphics Audio Network\nDisplay: off")
+        self.write("max_sleeps", 2)
+        self.run_daemon()
+        self.assertTrue(self.enables())
+
+    def test_fresh_wake_gate_and_later_fullwake_resume_policy(self):
+        self.write("wake_sequence", "\n".join([
+            "Current System Capabilities are: CPU Graphics",       # loop observation
+            "Current System Capabilities are: CPU Network",    # gate observes transition
+            "Current System Capabilities are: CPU Graphics",       # next loop recovers
+            "Current System Capabilities are: CPU Graphics",       # fresh enable gate
+        ]))
+        self.write("max_sleeps", 3)
+        output = self.run_daemon()
+        self.assertIn("wake partial: allowing sleep", output)
+        self.assertTrue(self.enables(), "policy should resume on later FullWake")
+        self.assertGreaterEqual(min(self.enables()), CLOCK0 + 10)
+
+    def test_delayed_sensor_and_loop_gap_are_reported_as_wall_clock_observations(self):
+        self.write("wake_delay", 12)
+        self.write("max_sleeps", 2)
+        output = self.run_daemon()
+        self.assertIn("late progress: phase=wake; duration=12s; wall-clock observation", output)
+        self.assertIn("acquisition_durations=", output)
+        self.assertIn("consecutive loop starts 34s apart", output)
+        self.assertEqual(self.enables(), [CLOCK0 + 24])
+
+    def test_failed_sleep_setting_is_not_reported_as_reconciled(self):
+        self.write("fail_setting", 1)
+        self.write("max_sleeps", 2)
+        output = self.run_daemon()
+        self.assertIn("sleep setting failed: requested_disablesleep=1; observed_actual_disablesleep=0", output)
+
+    def test_low_battery_idle_still_forces_sleep_during_partial_wake(self):
+        self.write("power", "Battery Power")
+        self.write("battery", 30)
+        self.write("idle", 1900)
+        self.write("wake", "Current System Capabilities are: CPU Network")
+        self.run_daemon()
+        self.assertIn("sleepnow", [action for action, _ in self.pmset_events()])
+        self.assertEqual(self.enables(), [])
+
+    def test_fullwake_darkwake_fullwake_reconciles_held_override(self):
+        self.write("wake_sequence", "\n".join([
+            "Current System Capabilities are: CPU Graphics",
+            "Current System Capabilities are: CPU Graphics",
+            "Current System Capabilities are: CPU Network",
+            "Current System Capabilities are: CPU Graphics",
+            "Current System Capabilities are: CPU Graphics",
+        ]))
+        self.write("max_sleeps", 3)
+        self.run_daemon()
+        self.assertEqual(self.pmset_events(), [
+            ("disablesleep 0", CLOCK0), ("disablesleep 1", CLOCK0),
+            ("disablesleep 0", CLOCK0 + 10), ("disablesleep 1", CLOCK0 + 20),
+            ("disablesleep 0", CLOCK0 + 30),
+        ])
+
+    def test_partial_wake_clears_external_override_before_failed_battery_skip(self):
+        self.write("wake", "Current System Capabilities are: CPU Network")
+        self.write("external_override_after_sleep", 1)
+        self.write("max_sleeps", 2)
+        self.run_daemon()
+        self.assertEqual(self.enables(), [])
+        self.assertIn(("disablesleep 0", CLOCK0 + 10), self.pmset_events())
+
+    def test_recovery_preserves_existing_policy_gates(self):
+        for name, settings, allowed in (
+            ("paused", {"pause": "indefinite"}, False),
+            ("expired-pause", {"pause": CLOCK0 - 1}, True),
+            ("low-battery", {"power": "Battery Power", "battery": 49}, False),
+            ("threshold-equality", {"power": "Battery Power", "battery": 50}, True),
+            ("cooldown", {"cooldown": CLOCK0 + 200}, False),
+            ("hot", {"thermal": "Heavy"}, False),
+        ):
+            with self.subTest(gate=name):
+                for filename in ("pause", "cooldown"):
+                    (self.dir / filename).unlink(missing_ok=True)
+                self.write("battery", 80)
+                self.write("thermal", "Nominal")
+                self.write("state", 1)
+                self.write("clock", CLOCK0)
+                self.write("sleep_count", 0)
+                self.write("max_sleeps", 2)
+                (self.dir / "pmset.log").write_text("")
+                for filename, value in settings.items():
+                    self.write(filename, value)
+                self.write("wake_sequence", "\n".join([
+                    "Current System Capabilities are: CPU Network",
+                    "Current System Capabilities are: CPU Graphics",
+                    "Current System Capabilities are: CPU Graphics",
+                ]))
+                self.run_daemon()
+                self.assertEqual(self.enables(), [CLOCK0 + 10] if allowed else [])
+                self.assertNotIn("sleepnow", [action for action, _ in self.pmset_events()])
+
+    def test_backward_sensor_clock_reports_unknown_duration(self):
+        self.write("wake_delay", -12)
+        self.write("max_sleeps", 1)
+        output = self.run_daemon()
+        self.assertIn("wake:unknowns", output)
+        self.assertIn("policy:unknown", output)
+        self.assertNotIn("late progress:", output)
+
+    def test_between_loop_delay_is_separate_from_sensor_duration(self):
+        self.write("clock_jump_after", "1 100")
+        self.write("max_sleeps", 2)
+        output = self.run_daemon()
+        self.assertIn("consecutive loop starts 110s apart", output)
+        self.assertNotIn("late progress: phase=", output)
+        self.assertEqual(self.enables(), [CLOCK0])
 
     def test_garbage_cooldown_file(self):
         with self.subTest(case="not a number"):
