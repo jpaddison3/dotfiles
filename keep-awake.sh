@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 #
-# keep-awake.sh — Keep this Mac awake (even with the lid shut) while the
-# battery is at/above a threshold. Below it, allow normal sleep and force sleep
-# after a long period without keyboard/trackpad input, even if another process
-# (such as Claude Code) is inhibiting idle sleep. Runs indefinitely, flipping
-# back and forth as the battery rises and falls.
+# keep-awake.sh — Keep this Mac awake (even with the lid shut) while on AC,
+# or while the battery is at/above a threshold. Below it, allow normal sleep
+# and force sleep after a long period without keyboard/trackpad input, even if
+# another process (such as Claude Code) is inhibiting idle sleep. On AC, a
+# sustained explicit discharging status allows normal sleep after 60 seconds.
+# Runs indefinitely, flipping back and forth as power and battery state change.
 #
 # Overheat safety (on battery, lid shut, unattended): while it's keeping the Mac
 # awake AND on battery AND the lid is closed AND there's been no recent input, it
@@ -72,6 +73,8 @@ LOW_BATTERY_IDLE_SECONDS=1800  # below the battery threshold, force sleep after
                                # This deliberately overrides app-level idle
                                # inhibitors, but leaves ample time for short
                                # unattended jobs and normal breaks.
+AC_DISCHARGE_CONFIRMATION_SECONDS=60  # require sustained explicit discharge on AC
+                                      # before allowing ordinary sleep.
 LATE_COMMAND_SECONDS=10
 LATE_LOOP_SECONDS=30
 
@@ -80,12 +83,6 @@ if [[ "${EUID}" -ne 0 && "${KEEP_AWAKE_NO_SUDO:-}" != "1" ]]; then
   echo "Re-running with sudo (needed to override lid-closed sleep)…"
   exec sudo "$0" "$@"
 fi
-
-battery_pct() {
-  # e.g. " -InternalBattery-0 (id=...) 83%; discharging; ..."  ->  83
-  # grep -m1 (not head) avoids a SIGPIPE that pipefail would treat as failure.
-  pmset -g batt | grep -Eom1 '[0-9]+%' | tr -d '%' || true
-}
 
 timestamp() { date '+%Y-%m-%d %-I:%M:%S%p %Z'; }
 log_message() { echo "$(timestamp) — $*"; }
@@ -160,16 +157,30 @@ set_sleep_now() {
   return "$status"
 }
 
-power_source() {  # "battery", "ac", or "unknown"
-  local status
-  status="$(pmset -g batt 2>/dev/null || true)"
-  if [[ "${status}" == *"Battery Power"* ]]; then
-    echo "battery"
-  elif [[ "${status}" == *"AC Power"* ]]; then
-    echo "ac"
+# Read percentage, power source, and the exact battery status token together.
+# A single snapshot prevents a plug/unplug transition between separate reads
+# from mixing a stale percentage with a new power source.
+read_battery_snapshot() {
+  local snapshot
+  snapshot="$(pmset -g batt 2>/dev/null || true)"
+  pct="$(printf '%s\n' "${snapshot}" | grep -Eom1 '[0-9]+%' | tr -d '%' || true)"
+  if [[ "${snapshot}" == *"Battery Power"* ]]; then
+    source="battery"
+  elif [[ "${snapshot}" == *"AC Power"* ]]; then
+    source="ac"
   else
-    echo "unknown"
+    source="unknown"
   fi
+  if printf '%s\n' "${snapshot}" | grep -Eq '(^|;)[[:space:]]*discharging[[:space:]]*(;|$)'; then
+    battery_status="discharging"
+  elif printf '%s\n' "${snapshot}" | grep -Eq '(^|;)[[:space:]]*charging[[:space:]]*(;|$)'; then
+    battery_status="charging"
+  elif printf '%s\n' "${snapshot}" | grep -Eq '(^|;)[[:space:]]*not charging[[:space:]]*(;|$)'; then
+    battery_status="not-charging"
+  else
+    battery_status="unknown"
+  fi
+  printf '%s|%s|%s' "${pct}" "${source}" "${battery_status}"
 }
 
 lid_state() {  # "closed", "open", or "unknown"
@@ -197,7 +208,7 @@ thermal_level() {
   # `|| true`: awk's early `exit` can SIGPIPE powermetrics, and powermetrics
   # itself can transiently fail; under `set -o pipefail` that non-zero pipeline
   # status would otherwise kill the whole script at the `level="$(thermal_level)"`
-  # assignment below. Same guard as battery_pct.
+  # assignment below. Same guard as read_battery_snapshot.
   powermetrics -n 1 -i 200 --samplers thermal 2>/dev/null \
     | awk -F': ' '/Current pressure level/{print $2; exit}' || true
 }
@@ -271,12 +282,14 @@ force_sleep_and_start_cooldown() {
   last_logged=""
 }
 
-echo "Watching battery: stay awake (lid open or shut) while ≥ ${THRESHOLD}%, allow sleep below. Ctrl-C to stop."
+echo "Watching power: stay awake on AC or while battery ≥ ${THRESHOLD}%; allow sleep after ${AC_DISCHARGE_CONFIRMATION_SECONDS}s of confirmed AC discharge or below threshold. Ctrl-C to stop."
 
 last_logged=""   # log only when the decision changes, not every tick
 last_diagnostic_at=0                           # periodic full safety snapshot
 hot_count=0                                    # consecutive hot reads (overheat safety)
 cooldown_until=0                               # epoch until sleep is allowed/triggers can fire again
+discharge_started_at=0                         # first consecutive AC-discharge sample
+last_sample_at=0                               # detect backwards clock movement between polls
 trigger_rank="$(thermal_rank "${TRIGGER_LEVEL}")"
 
 # Resume a cooldown from before a daemon restart. Ignore garbage, and clamp to
@@ -315,8 +328,11 @@ while true; do
   sample_start=skipped
   sample_end=skipped
   thermal_sample_gap=unknown
-  measure battery battery_pct; pct="${MEASURED_OUTPUT}"; battery_duration="${MEASURED_DURATION}"
-  measure power power_source; source="${MEASURED_OUTPUT}"; power_duration="${MEASURED_DURATION}"
+  measure battery-snapshot read_battery_snapshot
+  IFS='|' read -r pct source battery_status <<< "${MEASURED_OUTPUT}"
+  battery_duration="${MEASURED_DURATION}"
+  lid_duration=unknown
+  input_duration=unknown
   measure lid lid_state; lid="${MEASURED_OUTPUT}"; lid_duration="${MEASURED_DURATION}"
   measure input idle_seconds; idle="${MEASURED_OUTPUT}"; input_duration="${MEASURED_DURATION}"
   measure wake wake_capabilities; wake_raw="${MEASURED_OUTPUT}"; wake_duration="${MEASURED_DURATION}"
@@ -324,6 +340,8 @@ while true; do
   wake="$(wake_classify "${wake_raw}")"
   fresh_now="$(date +%s)"
   if [[ "${fresh_now}" =~ ^[0-9]+$ ]]; then now="${fresh_now}"; fi
+  if (( now < last_sample_at )); then discharge_started_at=0; fi
+  last_sample_at="${now}"
 
   # Partial/unknown wake must release even an inherited/external assertion,
   # before unrelated sensor failures can skip policy reconciliation.
@@ -345,14 +363,35 @@ while true; do
   fi
 
   if [[ -z "${pct}" ]]; then
+    discharge_started_at=0
     log_message "couldn't read battery; retrying"
     [[ -n "${wake_reason}" ]] && log_message "${wake_reason}"
     sleep "${POLL_SECONDS}"
     continue
   fi
 
+  # Only an explicit, consecutive AC + discharging observation qualifies for
+  # the exception. Any other source/status, a missing sample, or a backwards
+  # clock resets the window. This runs independently of pause/cooldown so a
+  # confirmed discharge remains effective when those gates end.
+  if [[ "${source}" == "ac" && "${battery_status}" == "discharging" ]]; then
+    if (( discharge_started_at == 0 || now < discharge_started_at )); then
+      discharge_started_at="${now}"
+    fi
+  else
+    discharge_started_at=0
+  fi
+  discharge_elapsed=0
+  ac_discharge_confirmed=0
+  if (( discharge_started_at > 0 )); then
+    discharge_elapsed=$(( now - discharge_started_at ))
+    if (( discharge_elapsed >= AC_DISCHARGE_CONFIRMATION_SECONDS )); then
+      ac_discharge_confirmed=1
+    fi
+  fi
+
   # Decide the desired state: a temporary pause (see keep-awakectl) wins,
-  # otherwise it's driven by the battery threshold.
+  # otherwise AC status takes precedence over the battery threshold.
   below_threshold=0
   if pause_active; then
     desired=0; reason="paused: allowing sleep"
@@ -365,6 +404,14 @@ while true; do
       # Mac isn't kept awake straight away. Constant text → logs once.
       desired=0
       reason="cooldown after forced sleep: allowing sleep until $(date -r "${cooldown_until}" '+%-I:%M:%S%p')"
+    elif [[ "${source}" == "ac" ]]; then
+      if (( ac_discharge_confirmed == 1 )); then
+        desired=0
+        reason="AC discharging for ${discharge_elapsed}s (≥ ${AC_DISCHARGE_CONFIRMATION_SECONDS}s): allowing sleep"
+      else
+        desired=1
+        reason="AC ${battery_status}: keeping awake (discharge confirmation ${discharge_elapsed}/${AC_DISCHARGE_CONFIRMATION_SECONDS}s)"
+      fi
     elif (( pct >= THRESHOLD )); then
       desired=1; reason="battery ${pct}% (≥ ${THRESHOLD}%): keeping awake"
     else
@@ -500,7 +547,7 @@ while true; do
     decision_logged_at="$(date +%s)"
     policy_duration=unknown
     if [[ "${decision_logged_at}" =~ ^[0-9]+$ && "${loop_start}" =~ ^[0-9]+$ ]] && (( decision_logged_at >= loop_start )); then policy_duration=$(( decision_logged_at - loop_start ))s; fi
-    log_message "diagnostics: battery=${pct}%; power=${source}; lid=${lid}; idle=${idle_display}s; wake=${wake}; wake_capabilities=$(echo "${wake_raw}" | tr '\n' ' '); thermal=${level}; thermal_check=${thermal_check}; hot_count=${hot_count}/${THERMAL_DEBOUNCE}; desired_disablesleep=${desired}; actual_disablesleep=${actual}; loop_start=${loop_start}; loop_gap=${loop_gap}s; acquisition_durations=battery:${battery_duration}s,power:${power_duration}s,lid:${lid_duration}s,input:${input_duration}s,wake:${wake_duration}s,setting:${SET_SLEEP_DURATION}s,thermal:${thermal_duration:-skipped}s,policy:${policy_duration}; thermal_sample_start=${sample_start:-skipped}; thermal_sample_end=${sample_end:-skipped}; thermal_sample_gap=${thermal_sample_gap:-unknown}s; cooldown_remaining=${cooldown_remaining}; clock=wall"
+    log_message "diagnostics: battery=${pct}%; power=${source}; status=${battery_status}; discharge=${discharge_elapsed}/${AC_DISCHARGE_CONFIRMATION_SECONDS}s; lid=${lid}; idle=${idle_display}s; wake=${wake}; wake_capabilities=$(echo "${wake_raw}" | tr '\n' ' '); thermal=${level}; thermal_check=${thermal_check}; hot_count=${hot_count}/${THERMAL_DEBOUNCE}; desired_disablesleep=${desired}; actual_disablesleep=${actual}; loop_start=${loop_start}; loop_gap=${loop_gap}s; acquisition_durations=battery:${battery_duration}s,lid:${lid_duration}s,input:${input_duration}s,wake:${wake_duration}s,setting:${SET_SLEEP_DURATION}s,thermal:${thermal_duration:-skipped}s,policy:${policy_duration}; thermal_sample_start=${sample_start:-skipped}; thermal_sample_end=${sample_end:-skipped}; thermal_sample_gap=${thermal_sample_gap:-unknown}s; cooldown_remaining=${cooldown_remaining}; clock=wall"
     last_diagnostic_at="${decision_now}"
   fi
 

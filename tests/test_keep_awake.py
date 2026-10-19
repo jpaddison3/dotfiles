@@ -27,8 +27,14 @@ case "$1 $2" in
     elif [ -f "$d/wake" ]; then cat "$d/wake"; else echo 'Current System Capabilities are: CPU Graphics'; fi
     ;;
   "-g batt")
-    printf "Now drawing from '%s'\\n" "$(cat "$d/power")"
-    printf ' -InternalBattery-0 (id=1)\\t%s%%; discharging; 5:00 remaining present: true\\n' "$(cat "$d/battery")"
+    status="$(cat "$d/battery_status")"
+    [ ! -f "$d/battery_status_sequence" ] || status="$(head -n 1 "$d/battery_status_sequence")"
+    battery="$(cat "$d/battery")"
+    [ ! -f "$d/battery_sequence" ] || battery="$(head -n 1 "$d/battery_sequence")"
+    power="$(cat "$d/power")"
+    [ ! -f "$d/power_sequence" ] || power="$(head -n 1 "$d/power_sequence")"
+    printf "Now drawing from '%s'\\n" "$power"
+    printf ' -InternalBattery-0 (id=1)\\t%s%%; %s; 5:00 remaining present: true\\n' "$battery" "$status"
     ;;
   "-g ")
     printf ' SleepDisabled\\t\\t%s\\n' "$(cat "$d/state")"
@@ -80,6 +86,15 @@ if [ -f "$d/clock_jump_after" ]; then
     echo $(( $(cat "$d/clock") + secs )) > "$d/clock"
   fi
 fi
+if [ -f "$d/battery_sequence" ]; then
+  tail -n +2 "$d/battery_sequence" > "$d/battery_sequence.tmp" && mv "$d/battery_sequence.tmp" "$d/battery_sequence"
+fi
+if [ -f "$d/battery_status_sequence" ]; then
+  tail -n +2 "$d/battery_status_sequence" > "$d/battery_status_sequence.tmp" && mv "$d/battery_status_sequence.tmp" "$d/battery_status_sequence"
+fi
+if [ -f "$d/power_sequence" ]; then
+  tail -n +2 "$d/power_sequence" > "$d/power_sequence.tmp" && mv "$d/power_sequence.tmp" "$d/power_sequence"
+fi
 if [ -f "$d/external_override_after_sleep" ]; then
   echo 1 > "$d/state"
   : > "$d/battery"
@@ -106,6 +121,7 @@ class KeepAwakeTests(unittest.TestCase):
         self.write("max_sleeps", 40)
         self.write("state", 0)
         self.write("battery", 80)
+        self.write("battery_status", "charging")
         self.write("power", "AC Power")
         self.write("lid", "No")
         self.write("idle", 0)
@@ -121,6 +137,12 @@ class KeepAwakeTests(unittest.TestCase):
 
     def set_thermal(self, *levels):
         self.write("thermal", "\n".join(levels))
+
+    def set_battery_status(self, status):
+        self.write("battery_status", status)
+
+    def set_battery_status_sequence(self, *statuses):
+        self.write("battery_status_sequence", "\n".join(statuses))
 
     def run_daemon(self):
         env = {
@@ -338,8 +360,8 @@ class KeepAwakeTests(unittest.TestCase):
         for name, settings, allowed in (
             ("paused", {"pause": "indefinite"}, False),
             ("expired-pause", {"pause": CLOCK0 - 1}, True),
-            ("low-battery", {"battery": 49}, False),
-            ("threshold-equality", {"battery": 50}, True),
+            ("low-battery", {"power": "Battery Power", "battery": 49}, False),
+            ("threshold-equality", {"power": "Battery Power", "battery": 50}, True),
             ("cooldown", {"cooldown": CLOCK0 + 200}, False),
             ("hot", {"thermal": "Heavy"}, False),
         ):
@@ -405,6 +427,149 @@ class KeepAwakeTests(unittest.TestCase):
         for name in ("keep-awake.sh", "keep-awakectl"):
             with self.subTest(script=name):
                 self.assertIsNone(pattern.search((ROOT / name).read_text()))
+
+    def test_ac_keeps_awake_regardless_of_percentage_when_charging(self):
+        for percentage, status in ((4, "charging"), (15, "charging"), (50, "charging"), (80, "charging"), (15, "full"), (50, "charged"), (80, "not charging")):
+            with self.subTest(percentage=percentage, status=status):
+                self.write("battery", percentage)
+                self.set_battery_status(status)
+                self.write("max_sleeps", 3)
+                output = self.run_daemon()
+                self.assertIn(f"AC {'not-charging' if status == 'not charging' else 'unknown' if status in ('full', 'charged') else status}: keeping awake", output)
+                self.assertTrue(self.enables())
+                self.assertNotIn("AC discharging for", output)
+                self.write("clock", CLOCK0)
+                self.write("sleep_count", 0)
+                self.write("state", 0)
+                (self.dir / "pmset.log").write_text("")
+
+    def test_unknown_power_source_falls_back_to_percentage_policy(self):
+        self.write("power", "Mystery Power")
+        self.write("battery", 4)
+        self.write("max_sleeps", 3)
+        output = self.run_daemon()
+
+        self.assertIn("battery 4% (< 50%): allowing sleep", output)
+        self.assertEqual(self.enables(), [])
+        self.assertNotIn("AC discharging", output)
+
+    def test_ac_discharge_releases_after_confirmation_without_forcing_sleep(self):
+        self.write("idle", 1900)
+        for percentage in (4, 80):
+            with self.subTest(percentage=percentage):
+                self.write("battery", percentage)
+                self.set_battery_status("discharging")
+                self.write("max_sleeps", 9)
+                self.run_daemon()
+                self.assertEqual(self.pmset_events(), [
+                    ("disablesleep 0", CLOCK0),
+                    ("disablesleep 1", CLOCK0),
+                    ("disablesleep 0", CLOCK0 + 60),
+                    ("disablesleep 0", CLOCK0 + 90),  # exit cleanup
+                ])
+                self.write("clock", CLOCK0)
+                self.write("sleep_count", 0)
+                (self.dir / "pmset.log").write_text("")
+
+    def test_transient_ac_discharge_must_be_consecutive(self):
+        self.set_battery_status_sequence("discharging", "discharging", "charging", "discharging", "discharging", "discharging", "discharging", "discharging", "discharging", "charging")
+        self.write("max_sleeps", 11)
+        output = self.run_daemon()
+
+        self.assertNotIn("AC discharging for 60s (≥ 60s): allowing sleep", output)
+        self.assertIn("AC charging: keeping awake", output)
+        self.assertEqual(self.pmset_events(), [
+            ("disablesleep 0", CLOCK0), ("disablesleep 1", CLOCK0),
+            ("disablesleep 0", CLOCK0 + 110),  # only exit cleanup releases
+        ])
+
+    def test_unplugging_below_threshold_restores_battery_policy_next_poll(self):
+        self.write("battery", 4)
+        self.set_battery_status_sequence("charging", "charging", "charging", "charging", "charging", "charging", "charging", "charging")
+        self.write("max_sleeps", 4)
+        # The source changes on the next snapshot; the stub uses the same
+        # sequence machinery for a deterministic per-poll transition.
+        self.write("power_sequence", "AC Power\nBattery Power")
+        output = self.run_daemon()
+
+        self.assertIn("battery 4% (< 50%): allowing sleep", output)
+        self.assertEqual(self.pmset_events(), [
+            ("disablesleep 0", CLOCK0), ("disablesleep 1", CLOCK0),
+            ("disablesleep 0", CLOCK0 + 10),
+            ("disablesleep 0", CLOCK0 + 40),
+        ])
+
+    def test_charging_recovery_reasserts_override_next_poll(self):
+        self.write("battery", 4)
+        self.set_battery_status_sequence(*(["discharging"] * 7 + ["charging"] * 3))
+        self.write("max_sleeps", 9)
+        self.run_daemon()
+        self.assertEqual(self.pmset_events(), [
+            ("disablesleep 0", CLOCK0), ("disablesleep 1", CLOCK0),
+            ("disablesleep 0", CLOCK0 + 60),
+            ("disablesleep 1", CLOCK0 + 70),
+            ("disablesleep 0", CLOCK0 + 90),
+        ])
+
+    def test_interrupted_discharge_restarts_full_confirmation_window(self):
+        for interruption in ("charging", "not charging", "", "malformed", "source", "percentage"):
+            with self.subTest(interruption=interruption):
+                fixture = KeepAwakeTests()
+                fixture.setUp()
+                self.addCleanup(fixture.tearDown)
+                statuses = ["discharging"] * 12
+                if interruption == "source":
+                    fixture.write("power_sequence", "\n".join(["AC Power"] * 3 + ["Mystery Power"] + ["AC Power"] * 8))
+                elif interruption == "percentage":
+                    fixture.write("battery_sequence", "\n".join(["80"] * 3 + [""] + ["80"] * 8))
+                else:
+                    statuses[3] = interruption
+                fixture.set_battery_status_sequence(*statuses)
+                fixture.write("max_sleeps", 12)
+                fixture.run_daemon()
+                self.assertEqual(fixture.pmset_events(), [
+                    ("disablesleep 0", CLOCK0), ("disablesleep 1", CLOCK0),
+                    ("disablesleep 0", CLOCK0 + 100),
+                    ("disablesleep 0", CLOCK0 + 120),
+                ])
+
+    def test_backward_clock_restarts_confirmation(self):
+        self.set_battery_status("discharging")
+        self.write("clock_jump_after", "5 -20")
+        self.write("max_sleeps", 12)
+        self.run_daemon()
+        # At poll 5 the clock falls from +40 to +30. A fresh 60 seconds
+        # must be observed from +30, even though it is still after startup.
+        self.assertEqual(self.pmset_events(), [
+            ("disablesleep 0", CLOCK0), ("disablesleep 1", CLOCK0),
+            ("disablesleep 0", CLOCK0 + 90),
+            ("disablesleep 0", CLOCK0 + 100),
+        ])
+
+    def test_pause_and_cooldown_win_on_low_percentage_ac(self):
+        self.write("battery", 4)
+        self.write("pause", CLOCK0 + 20)
+        self.cooldown_file.write_text(f"{CLOCK0 + 40}\n")
+        self.write("max_sleeps", 6)
+        self.run_daemon()
+        self.assertEqual(self.enables(), [CLOCK0 + 40])
+
+    def test_plugging_in_below_threshold_enables_next_poll(self):
+        self.write("battery", 4)
+        self.write("power_sequence", "Battery Power\nAC Power\nAC Power")
+        self.write("max_sleeps", 3)
+        self.run_daemon()
+        self.assertEqual(self.enables(), [CLOCK0 + 10])
+
+    def test_battery_at_threshold_stays_awake_after_unplugging(self):
+        self.write("battery", 50)
+        self.write("power_sequence", "AC Power\nBattery Power\nBattery Power")
+        self.write("max_sleeps", 3)
+        self.run_daemon()
+        self.assertEqual(self.pmset_events(), [
+            ("disablesleep 0", CLOCK0), ("disablesleep 1", CLOCK0),
+            ("disablesleep 0", CLOCK0 + 30),
+        ])
 
 
 if __name__ == "__main__":
