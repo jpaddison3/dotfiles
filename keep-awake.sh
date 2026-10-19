@@ -139,7 +139,7 @@ thermal_level() {
   # `|| true`: awk's early `exit` can SIGPIPE powermetrics, and powermetrics
   # itself can transiently fail; under `set -o pipefail` that non-zero pipeline
   # status would otherwise kill the whole script at the `level="$(thermal_level)"`
-  # assignment below. Same guard as battery_pct.
+  # assignment below. Same guard as read_battery_snapshot.
   powermetrics -n 1 -i 200 --samplers thermal 2>/dev/null \
     | awk -F': ' '/Current pressure level/{print $2; exit}' || true
 }
@@ -216,6 +216,7 @@ last_diagnostic_at=0                           # periodic full safety snapshot
 hot_count=0                                    # consecutive hot reads (overheat safety)
 cooldown_until=0                               # epoch until sleep is allowed/triggers can fire again
 discharge_started_at=0                         # first consecutive AC-discharge sample
+last_sample_at=0                               # detect backwards clock movement between polls
 trigger_rank="$(thermal_rank "${TRIGGER_LEVEL}")"
 
 # Resume a cooldown from before a daemon restart. Ignore garbage, and clamp to
@@ -238,6 +239,10 @@ set_sleep 0
 
 while true; do
   now="$(date +%s)"
+  if (( now < last_sample_at )); then
+    discharge_started_at=0
+  fi
+  last_sample_at="${now}"
   read_battery_snapshot
   lid="$(lid_state)"
   idle="$(idle_seconds)"
@@ -270,7 +275,7 @@ while true; do
   fi
 
   # Decide the desired state: a temporary pause (see keep-awakectl) wins,
-  # otherwise it's driven by the battery threshold.
+  # otherwise AC status takes precedence over the battery threshold.
   below_threshold=0
   if pause_active; then
     desired=0; reason="paused: allowing sleep"
