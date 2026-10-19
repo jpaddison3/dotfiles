@@ -16,6 +16,10 @@ STUBS = {
 d="$STUB_DIR"
 case "$1 $2" in
   "-g systemstate")
+    if [ -f "$d/wake_delay" ]; then
+      echo $(( $(cat "$d/clock") + $(cat "$d/wake_delay") )) > "$d/clock"
+      : > "$d/wake_delay.done"
+    fi
     if [ -f "$d/wake_sequence" ]; then
       head -n 1 "$d/wake_sequence"
       tail -n +2 "$d/wake_sequence" > "$d/wake.tmp" && mv "$d/wake.tmp" "$d/wake_sequence"
@@ -29,6 +33,7 @@ case "$1 $2" in
     printf ' SleepDisabled\\t\\t%s\\n' "$(cat "$d/state")"
     ;;
   "-a disablesleep")
+    if [ -f "$d/fail_setting" ] && [ "$3" = "1" ]; then exit 1; fi
     echo "$3" > "$d/state"
     echo "disablesleep $3 @$(cat "$d/clock")" >> "$d/pmset.log"
     ;;
@@ -260,6 +265,20 @@ class KeepAwakeTests(unittest.TestCase):
         self.assertIn("wake partial: allowing sleep", output)
         self.assertTrue(self.enables(), "policy should resume on later FullWake")
         self.assertGreaterEqual(min(self.enables()), CLOCK0 + 10)
+
+    def test_delayed_sensor_and_loop_gap_are_reported_as_wall_clock_observations(self):
+        self.write("wake_delay", 12)
+        self.write("max_sleeps", 2)
+        output = self.run_daemon()
+        self.assertIn("late progress: phase=wake; duration=12s; wall-clock observation", output)
+        self.assertIn("acquisition_durations=", output)
+        self.assertIn("loop_gap=", output)
+
+    def test_failed_sleep_setting_is_not_reported_as_reconciled(self):
+        self.write("fail_setting", 1)
+        self.write("max_sleeps", 2)
+        output = self.run_daemon()
+        self.assertIn("sleep setting failed: requested_disablesleep=1; observed_actual_disablesleep=0", output)
 
     def test_garbage_cooldown_file(self):
         with self.subTest(case="not a number"):
