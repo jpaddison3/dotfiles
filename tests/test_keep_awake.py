@@ -15,6 +15,12 @@ STUBS = {
     "pmset": """#!/bin/sh
 d="$STUB_DIR"
 case "$1 $2" in
+  "-g systemstate")
+    if [ -f "$d/wake_sequence" ]; then
+      head -n 1 "$d/wake_sequence"
+      tail -n +2 "$d/wake_sequence" > "$d/wake.tmp" && mv "$d/wake.tmp" "$d/wake_sequence"
+    elif [ -f "$d/wake" ]; then cat "$d/wake"; else echo 'Capabilities: CPU Graphics'; fi
+    ;;
   "-g batt")
     printf "Now drawing from '%s'\\n" "$(cat "$d/power")"
     printf ' -InternalBattery-0 (id=1)\\t%s%%; discharging; 5:00 remaining present: true\\n' "$(cat "$d/battery")"
@@ -94,6 +100,7 @@ class KeepAwakeTests(unittest.TestCase):
         self.write("lid", "No")
         self.write("idle", 0)
         self.write("thermal", "Nominal")
+        self.write("wake", "Capabilities: CPU Graphics")
         (self.dir / "pmset.log").write_text("")
 
     def tearDown(self):
@@ -204,6 +211,55 @@ class KeepAwakeTests(unittest.TestCase):
         # Reset at startup (clock not yet advanced), not just by the exit cleanup.
         self.assertEqual(self.pmset_events()[0], ("disablesleep 0", CLOCK0))
         self.assertEqual(self.enables(), [])
+
+    def test_partial_wake_clears_inherited_override_and_recovers_on_fullwake(self):
+        self.write("state", 1)
+        self.write("wake", "Capabilities: CPU No Graphics")
+        self.write("max_sleeps", 5)
+        output = self.run_daemon()
+        self.assertIn("wake partial: allowing sleep", output)
+        self.assertEqual(self.enables(), [])
+
+    def test_unknown_wake_never_enables_even_if_battery_unreadable(self):
+        self.write("wake", "Current Power State: 1")
+        self.write("battery", "")
+        self.write("max_sleeps", 4)
+        output = self.run_daemon()
+        self.assertIn("wake unknown: allowing sleep", output)
+        self.assertEqual(self.enables(), [])
+
+    def test_malformed_capabilities_are_unknown(self):
+        for malformed in ("CPU Graphics", "Capabilities: Graphics", "Capabilities: CPU Graphics\nCapabilities: CPU"):
+            with self.subTest(malformed=malformed):
+                self.write("wake", malformed)
+                self.write("max_sleeps", 2)
+                output = self.run_daemon()
+                self.assertIn("wake unknown: allowing sleep", output)
+                self.assertEqual(self.enables(), [])
+                self.write("clock", CLOCK0)
+                self.write("sleep_count", 0)
+                self.write("state", 0)
+                self.write("max_sleeps", 40)
+                (self.dir / "pmset.log").write_text("")
+
+    def test_fullwake_with_display_off_remains_capable(self):
+        self.write("wake", "Capabilities: CPU Graphics; Display: off")
+        self.write("max_sleeps", 2)
+        self.run_daemon()
+        self.assertTrue(self.enables())
+
+    def test_fresh_wake_gate_and_later_fullwake_resume_policy(self):
+        self.write("wake_sequence", "\n".join([
+            "Capabilities: CPU Graphics",       # loop observation
+            "Capabilities: CPU No Graphics",    # gate observes transition
+            "Capabilities: CPU Graphics",       # next loop recovers
+            "Capabilities: CPU Graphics",       # fresh enable gate
+        ]))
+        self.write("max_sleeps", 3)
+        output = self.run_daemon()
+        self.assertIn("wake partial: allowing sleep", output)
+        self.assertTrue(self.enables(), "policy should resume on later FullWake")
+        self.assertGreaterEqual(min(self.enables()), CLOCK0 + 10)
 
     def test_garbage_cooldown_file(self):
         with self.subTest(case="not a number"):

@@ -72,6 +72,8 @@ LOW_BATTERY_IDLE_SECONDS=1800  # below the battery threshold, force sleep after
                                # This deliberately overrides app-level idle
                                # inhibitors, but leaves ample time for short
                                # unattended jobs and normal breaks.
+LATE_COMMAND_SECONDS=10
+LATE_LOOP_SECONDS=30
 
 # Re-exec as root so the single sudo prompt happens now, at launch.
 if [[ "${EUID}" -ne 0 && "${KEEP_AWAKE_NO_SUDO:-}" != "1" ]]; then
@@ -88,8 +90,70 @@ battery_pct() {
 timestamp() { date '+%Y-%m-%d %-I:%M:%S%p %Z'; }
 log_message() { echo "$(timestamp) — $*"; }
 
+# Wall-clock epoch seconds are used because stock Bash 3.2 has no monotonic
+# clock. Gaps can reflect clock changes or suspend, not necessarily starvation.
+measure() {
+  local phase="$1" started ended status
+  shift
+  started="$(date +%s)"
+  if MEASURED_OUTPUT="$("$@")"; then status=0; else status=$?; fi
+  ended="$(date +%s)"
+  MEASURED_DURATION=0
+  if [[ "${started}" =~ ^[0-9]+$ && "${ended}" =~ ^[0-9]+$ ]] && (( ended >= started )); then
+    MEASURED_DURATION=$(( ended - started ))
+  fi
+  if (( MEASURED_DURATION > LATE_COMMAND_SECONDS )); then
+    log_message "late progress: phase=${phase}; duration=${MEASURED_DURATION}s; wall-clock observation"
+  fi
+  MEASURED_STATUS="$status"
+  return 0
+}
+
+wake_capabilities() { pmset -g systemstate; }
+wake_classify() {
+  local raw="$1" capabilities
+  if [[ "${raw}" == *"transitioning"* || "${raw}" == *"Transitioning"* ]]; then
+    echo unknown
+  else
+    capabilities="$(printf '%s\n' "${raw}" | awk -F: '/^Capabilities:[[:space:]]*/{sub(/^[[:space:]]*/, "", $2); print $2; count++} END{if(count != 1) exit 1}')" || { echo unknown; return; }
+    if [[ "${capabilities}" == *"CPU"* && "${capabilities}" == *"Graphics"* && "${capabilities}" != *"No Graphics"* ]]; then
+      echo full
+    elif [[ "${capabilities}" == *"CPU"* && ( "${capabilities}" == *"No Graphics"* || "${capabilities}" != *"Graphics"* ) ]]; then
+      echo partial
+    else
+      echo unknown
+    fi
+  fi
+}
+
 set_sleep() {  # $1: 1 = disable sleep (stay awake), 0 = allow normal sleep
-  pmset -a disablesleep "$1"
+  local started ended status
+  started="$(date +%s)"
+  if pmset -a disablesleep "$1"; then status=0; else status=$?; fi
+  ended="$(date +%s)"
+  SET_SLEEP_DURATION=unknown
+  if [[ "${started}" =~ ^[0-9]+$ && "${ended}" =~ ^[0-9]+$ ]] && (( ended >= started )); then
+    SET_SLEEP_DURATION=$(( ended - started ))
+    if (( SET_SLEEP_DURATION > LATE_COMMAND_SECONDS )); then
+      log_message "late progress: phase=sleep-setting; duration=${SET_SLEEP_DURATION}s; wall-clock observation"
+    fi
+  fi
+  return "$status"
+}
+
+set_sleep_now() {
+  local started ended status
+  started="$(date +%s)"
+  if pmset sleepnow; then status=0; else status=$?; fi
+  ended="$(date +%s)"
+  SLEEPNOW_DURATION=unknown
+  if [[ "${started}" =~ ^[0-9]+$ && "${ended}" =~ ^[0-9]+$ ]] && (( ended >= started )); then
+    SLEEPNOW_DURATION=$(( ended - started ))
+    if (( SLEEPNOW_DURATION > LATE_COMMAND_SECONDS )); then
+      log_message "late progress: phase=sleep-request; duration=${SLEEPNOW_DURATION}s; wall-clock observation"
+    fi
+  fi
+  return "$status"
 }
 
 power_source() {  # "battery", "ac", or "unknown"
@@ -176,7 +240,7 @@ current_disablesleep() { pmset -g | awk '/SleepDisabled/{print $2; exit}'; }
 
 force_sleep_and_start_cooldown() {
   set_sleep 0                # must drop the override first, or sleepnow is ignored
-  pmset sleepnow || true
+  set_sleep_now || true
 
   # Wait for the real suspend+wake before starting the cooldown, so opening the
   # lid cannot immediately trigger another forced sleep before the first input.
@@ -225,15 +289,54 @@ fi
 # must re-pass the thermal and cooldown gates.
 set_sleep 0
 
+previous_loop_start=""
+previous_thermal_sample=""
 while true; do
-  now="$(date +%s)"
-  pct="$(battery_pct)"
-  source="$(power_source)"
-  lid="$(lid_state)"
-  idle="$(idle_seconds)"
+  loop_start="$(date +%s)"
+  loop_gap=unknown
+  if [[ "${previous_loop_start}" =~ ^[0-9]+$ && "${loop_start}" =~ ^[0-9]+$ ]] && (( loop_start >= previous_loop_start )); then
+    loop_gap=$(( loop_start - previous_loop_start ))
+    if (( loop_gap > LATE_LOOP_SECONDS )); then
+      log_message "late progress: consecutive loop starts ${loop_gap}s apart; wall-clock observation, cause unknown"
+    fi
+  fi
+  previous_loop_start="${loop_start}"
+  now="${loop_start}"
+  thermal_duration=skipped
+  sample_start=skipped
+  sample_end=skipped
+  thermal_sample_gap=unknown
+  measure battery battery_pct; pct="${MEASURED_OUTPUT}"; battery_duration="${MEASURED_DURATION}"
+  measure power power_source; source="${MEASURED_OUTPUT}"; power_duration="${MEASURED_DURATION}"
+  measure lid lid_state; lid="${MEASURED_OUTPUT}"; lid_duration="${MEASURED_DURATION}"
+  measure input idle_seconds; idle="${MEASURED_OUTPUT}"; input_duration="${MEASURED_DURATION}"
+  measure wake wake_capabilities; wake_raw="${MEASURED_OUTPUT}"; wake_duration="${MEASURED_DURATION}"
+  wake="$(wake_classify "${wake_raw}")"
+  fresh_now="$(date +%s)"
+  if [[ "${fresh_now}" =~ ^[0-9]+$ ]]; then now="${fresh_now}"; fi
+
+  # Partial/unknown wake must release even an inherited/external assertion,
+  # before unrelated sensor failures can skip policy reconciliation.
+  if [[ "${wake}" != full ]]; then
+    hot_count=0
+    observed="$(current_disablesleep 2>/dev/null || true)"
+    if [[ "${observed}" != 0 ]]; then
+    measure reconcile-sleep set_sleep 0
+    if [[ "${MEASURED_STATUS}" == 0 ]]; then
+        wake_reason="wake ${wake}: allowing sleep"
+      else
+        wake_reason="wake ${wake}: requested sleep allowed; setting failed"
+      fi
+    else
+      wake_reason="wake ${wake}: allowing sleep"
+    fi
+  else
+    wake_reason=""
+  fi
 
   if [[ -z "${pct}" ]]; then
     log_message "couldn't read battery; retrying"
+    [[ -n "${wake_reason}" ]] && log_message "${wake_reason}"
     sleep "${POLL_SECONDS}"
     continue
   fi
@@ -241,7 +344,9 @@ while true; do
   # Decide the desired state: a temporary pause (see keep-awakectl) wins,
   # otherwise it's driven by the battery threshold.
   below_threshold=0
-  if pause_active; then
+  if [[ "${wake}" != full ]]; then
+    desired=0; reason="wake ${wake}: allowing sleep"
+  elif pause_active; then
     desired=0; reason="paused: allowing sleep"
   else
     if [[ -f "${PAUSE_FILE}" ]]; then
@@ -280,12 +385,31 @@ while true; do
   # already-held override. Unreadable → rank 0 → fail open, as elsewhere.
   level="not-sampled"
   thermal_check="skipped"
-  if (( desired == 1 )) && [[ "$(current_disablesleep)" != "1" ]]; then
-    level="$(thermal_level)"; [[ -n "${level}" ]] || level="unreadable"
+  if [[ "${wake}" == full ]] && (( desired == 1 )) && [[ "$(current_disablesleep)" != "1" ]]; then
+    sample_start="$(date +%s)"
+    measure thermal thermal_level; level="${MEASURED_OUTPUT}"; thermal_duration="${MEASURED_DURATION}"
+    sample_end="$(date +%s)"
+    thermal_sample_gap=unknown
+    if [[ "${previous_thermal_sample}" =~ ^[0-9]+$ && "${sample_start}" =~ ^[0-9]+$ ]] && (( sample_start >= previous_thermal_sample )); then
+      thermal_sample_gap=$(( sample_start - previous_thermal_sample ))
+    fi
+    previous_thermal_sample="${sample_start}"
+    [[ -n "${level}" ]] || level="unreadable"
     if (( $(thermal_rank "${level}") >= trigger_rank )); then
       desired=0; reason="thermal ${level} (≥ ${TRIGGER_LEVEL}): not enabling keep-awake"
     fi
   fi
+  if [[ "${desired}" == 1 ]]; then
+    # Re-read at the enable gate; a previous FullWake sample is not sufficient.
+    measure wake-gate wake_capabilities; wake_raw="${MEASURED_OUTPUT}"; wake_duration="${MEASURED_DURATION}"
+    wake="$(wake_classify "${wake_raw}")"
+    if [[ "${wake}" != full ]]; then
+      desired=0; reason="wake ${wake}: allowing sleep"
+      hot_count=0
+    fi
+  fi
+  fresh_now="$(date +%s)"
+  if [[ "${fresh_now}" =~ ^[0-9]+$ ]]; then now="${fresh_now}"; fi
 
   # Overheat safety: only while we're keeping the Mac awake (desired=1), on
   # battery, with the lid shut, AND unattended (no recent input) — that's the
@@ -310,7 +434,14 @@ while true; do
     thermal_check="skipped:cooldown"
   else
     thermal_check="sampled"
-    [[ "${level}" != "not-sampled" ]] || level="$(thermal_level)"   # reuse this pass's gate sample
+    if [[ "${level}" == "not-sampled" ]]; then
+      sample_start="$(date +%s)"
+      measure thermal thermal_level; level="${MEASURED_OUTPUT}"; thermal_duration="${MEASURED_DURATION}"
+      sample_end="$(date +%s)"
+      thermal_sample_gap=unknown
+      if [[ "${previous_thermal_sample}" =~ ^[0-9]+$ && "${sample_start}" =~ ^[0-9]+$ ]] && (( sample_start >= previous_thermal_sample )); then thermal_sample_gap=$(( sample_start - previous_thermal_sample )); fi
+      previous_thermal_sample="${sample_start}"
+    fi
     [[ -n "${level}" ]] || level="unreadable"
     if (( $(thermal_rank "${level:-}") >= trigger_rank )); then
       hot_count=$(( hot_count + 1 ))
@@ -330,7 +461,12 @@ while true; do
 
   # Apply only when the OS isn't already there (this also repairs any external
   # change made behind our back, e.g. by keep-awakectl's instant pause).
-  [[ "$(current_disablesleep)" == "${desired}" ]] || set_sleep "${desired}"
+  if [[ "$(current_disablesleep)" != "${desired}" ]]; then
+    measure setting set_sleep "${desired}"
+    if [[ "${MEASURED_STATUS}" != 0 ]]; then
+      log_message "sleep setting failed: requested_disablesleep=${desired}; observed_actual_disablesleep=$(current_disablesleep 2>/dev/null || echo unknown)"
+    fi
+  fi
 
   state_changed=0
   if [[ "${reason}" != "${last_logged}" ]]; then
@@ -339,10 +475,21 @@ while true; do
     state_changed=1
   fi
 
-  if (( state_changed == 1 || now - last_diagnostic_at >= DIAGNOSTIC_INTERVAL_SECONDS )); then
+  decision_now="$(date +%s)"
+  diagnostic_due=0
+  if [[ "${decision_now}" =~ ^[0-9]+$ && "${last_diagnostic_at}" =~ ^[0-9]+$ ]] && (( decision_now >= last_diagnostic_at && decision_now - last_diagnostic_at >= DIAGNOSTIC_INTERVAL_SECONDS )); then diagnostic_due=1; fi
+  if (( state_changed == 1 || diagnostic_due == 1 )); then
     idle_display="${idle:-unknown}"
-    log_message "diagnostics: battery=${pct}%; power=${source}; lid=${lid}; idle=${idle_display}s; thermal=${level}; thermal_check=${thermal_check}; hot_count=${hot_count}/${THERMAL_DEBOUNCE}; desired_disablesleep=${desired}; actual_disablesleep=$(current_disablesleep); cooldown_remaining=$(( cooldown_until > now ? cooldown_until - now : 0 ))s"
-    last_diagnostic_at="${now}"
+    actual="$(current_disablesleep 2>/dev/null || echo unknown)"
+    cooldown_remaining=unknown
+    if [[ "${decision_now}" =~ ^[0-9]+$ ]] && (( decision_now <= cooldown_until + 86400 )); then
+      cooldown_remaining=$(( cooldown_until > decision_now ? cooldown_until - decision_now : 0 ))s
+    fi
+    decision_logged_at="$(date +%s)"
+    policy_duration=unknown
+    if [[ "${decision_logged_at}" =~ ^[0-9]+$ && "${loop_start}" =~ ^[0-9]+$ ]] && (( decision_logged_at >= loop_start )); then policy_duration=$(( decision_logged_at - loop_start ))s; fi
+    log_message "diagnostics: battery=${pct}%; power=${source}; lid=${lid}; idle=${idle_display}s; wake=${wake}; wake_capabilities=$(echo "${wake_raw}" | tr '\n' ' '); thermal=${level}; thermal_check=${thermal_check}; hot_count=${hot_count}/${THERMAL_DEBOUNCE}; desired_disablesleep=${desired}; actual_disablesleep=${actual}; loop_start=${loop_start}; loop_gap=${loop_gap}s; acquisition_durations=battery:${battery_duration}s,power:${power_duration}s,lid:${lid_duration}s,input:${input_duration}s,wake:${wake_duration}s,thermal:${thermal_duration:-skipped}s,policy:${policy_duration}; thermal_sample_start=${sample_start:-skipped}; thermal_sample_end=${sample_end:-skipped}; thermal_sample_gap=${thermal_sample_gap:-unknown}s; cooldown_remaining=${cooldown_remaining}; clock=wall"
+    last_diagnostic_at="${decision_now}"
   fi
 
   sleep "${POLL_SECONDS}"
