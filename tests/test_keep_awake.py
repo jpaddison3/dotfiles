@@ -16,6 +16,7 @@ STUBS = {
 d="$STUB_DIR"
 case "$1 $2" in
   "-g systemstate")
+    if [ -f "$d/fail_wake" ]; then echo 'Capabilities: CPU Graphics'; exit 1; fi
     if [ -f "$d/wake_delay" ]; then
       echo $(( $(cat "$d/clock") + $(cat "$d/wake_delay") )) > "$d/clock"
       : > "$d/wake_delay.done"
@@ -229,6 +230,13 @@ class KeepAwakeTests(unittest.TestCase):
         self.write("wake", "Current Power State: 1")
         self.write("battery", "")
         self.write("max_sleeps", 4)
+        output = self.run_daemon()
+        self.assertIn("wake unknown: allowing sleep", output)
+        self.assertEqual(self.enables(), [])
+
+    def test_failed_wake_command_is_unknown_even_with_output(self):
+        self.write("fail_wake", 1)
+        self.write("max_sleeps", 3)
         output = self.run_daemon()
         self.assertIn("wake unknown: allowing sleep", output)
         self.assertEqual(self.enables(), [])

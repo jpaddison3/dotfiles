@@ -311,6 +311,7 @@ while true; do
   measure lid lid_state; lid="${MEASURED_OUTPUT}"; lid_duration="${MEASURED_DURATION}"
   measure input idle_seconds; idle="${MEASURED_OUTPUT}"; input_duration="${MEASURED_DURATION}"
   measure wake wake_capabilities; wake_raw="${MEASURED_OUTPUT}"; wake_duration="${MEASURED_DURATION}"
+  [[ "${MEASURED_STATUS}" == 0 ]] || wake_raw=""
   wake="$(wake_classify "${wake_raw}")"
   fresh_now="$(date +%s)"
   if [[ "${fresh_now}" =~ ^[0-9]+$ ]]; then now="${fresh_now}"; fi
@@ -402,6 +403,7 @@ while true; do
   if [[ "${desired}" == 1 ]]; then
     # Re-read at the enable gate; a previous FullWake sample is not sufficient.
     measure wake-gate wake_capabilities; wake_raw="${MEASURED_OUTPUT}"; wake_duration="${MEASURED_DURATION}"
+    [[ "${MEASURED_STATUS}" == 0 ]] || wake_raw=""
     wake="$(wake_classify "${wake_raw}")"
     if [[ "${wake}" != full ]]; then
       desired=0; reason="wake ${wake}: allowing sleep"
