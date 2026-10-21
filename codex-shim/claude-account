@@ -28,6 +28,8 @@
 #
 # When remapping to a non-default account, an inherited CLAUDE_CODE_OAUTH_TOKEN
 # is dropped: it is the personal account's and would override the dir's login.
+# Unless explicitly set by the caller, Claude Code's session scratchpad lives in
+# ~/.cache/agent-tmp, which survives reboots and is cleaned after 30 idle days.
 #
 # Fails open: any mapping problem prints a one-line `claude-account: ...`
 # warning to stderr and continues as if unmatched.
@@ -222,9 +224,35 @@ else
   unset CLAUDE_CONFIG_DIR
 fi
 
+# Keep Claude Code's session scratchpad across reboots. Do not change TMPDIR:
+# that would also make temporary files from unrelated tools persistent.
+if [ -z "${CLAUDE_CODE_TMPDIR:-}" ]; then
+  if [ -z "$HOME_DIR" ]; then
+    warn 'HOME is unset; leaving CLAUDE_CODE_TMPDIR unset'
+    unset CLAUDE_CODE_TMPDIR
+  else
+    CLAUDE_CODE_TMPDIR="$HOME_DIR/.cache/agent-tmp"
+    if [ ! -d "$CLAUDE_CODE_TMPDIR" ]; then
+      if ! mkdir -p "$HOME_DIR/.cache" || ! mkdir -m 700 "$CLAUDE_CODE_TMPDIR" 2>/dev/null; then
+        # Another launcher may have created it between the check and mkdir.
+        if [ ! -d "$CLAUDE_CODE_TMPDIR" ]; then
+          warn "could not create scratch directory $CLAUDE_CODE_TMPDIR; leaving CLAUDE_CODE_TMPDIR unset"
+          CLAUDE_CODE_TMPDIR=""
+        fi
+      fi
+    fi
+    if [ -n "$CLAUDE_CODE_TMPDIR" ] && [ -d "$CLAUDE_CODE_TMPDIR" ]; then
+      export CLAUDE_CODE_TMPDIR
+    else
+      unset CLAUDE_CODE_TMPDIR
+    fi
+  fi
+fi
+
 if [ -n "${CLAUDE_ACCOUNT_DEBUG:-}" ]; then
   echo "claude-account: real=$REAL_CLAUDE" >&2
   echo "claude-account: config=${CHOSEN:-default} rule=$RULE token=$TOKEN_STATE" >&2
+  echo "claude-account: tmpdir=${CLAUDE_CODE_TMPDIR:-<unset>}" >&2
   exit 0
 fi
 
