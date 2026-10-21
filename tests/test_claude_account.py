@@ -14,6 +14,7 @@ FAKE_CLAUDE = """#!/bin/sh
 echo "FAKE-CLAUDE"
 echo "CCD=${CLAUDE_CONFIG_DIR-<unset>}"
 echo "TOKEN=${CLAUDE_CODE_OAUTH_TOKEN-<unset>}"
+echo "TMPD=${CLAUDE_CODE_TMPDIR-<unset>}"
 echo "ARGS=$*"
 """
 
@@ -78,6 +79,12 @@ class ClaudeAccountShimTest(unittest.TestCase):
             if line.startswith("CCD="):
                 return line[4:]
         self.fail(f"no CCD in output: {result.stdout!r} / {result.stderr!r}")
+
+    def tmpd(self, result):
+        for line in result.stdout.splitlines():
+            if line.startswith("TMPD="):
+                return line[5:]
+        self.fail(f"no TMPD in output: {result.stdout!r} / {result.stderr!r}")
 
     def transcript(self, config_dir, session_id):
         d = self.home / config_dir / "projects" / "-some-project"
@@ -235,6 +242,30 @@ class ClaudeAccountShimTest(unittest.TestCase):
     def test_shim_dir_first_on_path_does_not_self_exec(self):
         r = self.run_shim(self.home)
         self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("FAKE-CLAUDE", r.stdout)
+
+    # -- persistent scratch directory -------------------------------------
+    def test_default_tmpdir_is_created_private(self):
+        r = self.run_shim(self.home)
+        tmpdir = self.home / ".cache" / "agent-tmp"
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.tmpd(r), str(tmpdir))
+        self.assertTrue(tmpdir.is_dir())
+        self.assertEqual(tmpdir.stat().st_mode & 0o777, 0o700)
+
+    def test_explicit_tmpdir_passes_through_without_creating_dir(self):
+        custom = self.home / "custom-tmp"
+        r = self.run_shim(self.home, env={"CLAUDE_CODE_TMPDIR": str(custom)})
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.tmpd(r), str(custom))
+        self.assertFalse(custom.exists())
+
+    def test_tmpdir_creation_failure_warns_and_still_execs(self):
+        (self.home / ".cache").write_text("not a directory")
+        r = self.run_shim(self.home)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.tmpd(r), "<unset>")
+        self.assertIn("claude-account: could not create scratch directory", r.stderr)
         self.assertIn("FAKE-CLAUDE", r.stdout)
 
     def test_runs_under_system_bash(self):

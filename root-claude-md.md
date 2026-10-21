@@ -10,6 +10,7 @@ I live in Cambridge, Massachusetts. My husband's name is Will.
 
 ## Software
 
+- Put scratch files (notes, probe output, intermediate results, throwaway clones) in `~/.cache/agent-tmp`, not `/tmp` — macOS wipes `/tmp` on reboot. Files there expire after 30 days unused; put anything long-lived in a real worktree instead.
 - Use `trash` instead of `rm` to delete files / folders
 - Keep filesystem searches scoped; don’t walk `/` or `~` unbounded.
 - Disabled in Claude: Output you discard (`2>/dev/null`, `>/dev/null`, `&>/dev/null` and friends) is rewritten to land in `~/.logs/` instead; grep there (`loggrep <term>`) when hunting a failure.

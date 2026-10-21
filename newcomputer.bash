@@ -98,6 +98,10 @@ ln -sf $SCRIPTPATH/claude-skills/cpr ~/.codex/skills/cpr
 ln -sf $SCRIPTPATH/claude-skills/linear ~/.codex/skills/linear
 ln -sf $SCRIPTPATH/claude-skills/review-codex ~/.codex/skills/review-codex
 ln -sf $SCRIPTPATH/claude-skills/review-claude ~/.codex/skills/review-claude
+
+# Codex sandbox access for agent scratch files (also add to ~/.codex/config.toml):
+# [sandbox_workspace_write]
+# writable_roots = ["/Users/jpaddison/.cache/agent-tmp"]
 ln -sf $SCRIPTPATH/claude-skills/review-multi ~/.codex/skills/review-multi
 ln -sf $SCRIPTPATH/claude-skills/rpr ~/.codex/skills/rpr
 ln -sf $SCRIPTPATH/claude-skills/sentry ~/.codex/skills/sentry
@@ -138,6 +142,13 @@ ln -f $SCRIPTPATH/codex-expire-sessions.sh ~/.local/bin/codex-expire-sessions.sh
 ln -f $SCRIPTPATH/com.jpaddison.codex-expire-sessions.plist ~/Library/LaunchAgents/com.jpaddison.codex-expire-sessions.plist
 launchctl bootout gui/$(id -u)/com.jpaddison.codex-expire-sessions 2>/dev/null || true
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jpaddison.codex-expire-sessions.plist
+
+# Daily cleanup of Claude/Codex agent scratch files after 30 idle days.
+mkdir -p ~/.local/share/agent-tmp-cleanup
+ln -f $SCRIPTPATH/agent-tmp-cleanup.sh ~/.local/bin/agent-tmp-cleanup.sh
+ln -f $SCRIPTPATH/com.jpaddison.agent-tmp-cleanup.plist ~/Library/LaunchAgents/com.jpaddison.agent-tmp-cleanup.plist
+launchctl bootout gui/$(id -u)/com.jpaddison.agent-tmp-cleanup 2>/dev/null || true
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jpaddison.agent-tmp-cleanup.plist
 
 # Todoist Quick Add (~/personal-coding/todoist-quick-add) at login, relaunched
 # on crash. Build and copy the app into ~/Applications first.

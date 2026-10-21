@@ -122,6 +122,11 @@ The repo → account table is `claude-accounts` in this repo, symlinked to
 `#` comments). The default account (`~/.claude`) is never listed: no match leaves
 `CLAUDE_CONFIG_DIR` **unset** (never set to `~/.claude`).
 
+When `CLAUDE_CODE_TMPDIR` is unset or empty, the shim creates the private
+`~/.cache/agent-tmp` directory with mode `0700` and uses it for Claude Code's
+session scratchpad. An explicit caller value is preserved. The directory is
+cleaned after 30 days of inactivity; see `agent-tmp-cleanup.sh`.
+
 Resolution order:
 
 1. `CLAUDE_CONFIG_DIR` already set → pass through untouched (token included).
