@@ -11,15 +11,15 @@
 #   AGENT_TMP_DRY_RUN=1     report the count without deleting
 #   AGENT_TMP_TTY=1         write to the terminal instead of the log
 
-set -u
+set -u -o pipefail
 
 DAYS="${AGENT_TMP_DAYS:-30}"
 DRY_RUN="${AGENT_TMP_DRY_RUN:-0}"
 ROOT="$HOME/.cache/agent-tmp"
 LOG_DIR="$HOME/.local/share/agent-tmp-cleanup"
-mkdir -p "$LOG_DIR"
+mkdir -p "$LOG_DIR" || exit $?
 if [ -z "${AGENT_TMP_TTY:-}" ]; then
-  exec >> "$LOG_DIR/agent-tmp-cleanup.log" 2>&1
+  exec >> "$LOG_DIR/agent-tmp-cleanup.log" 2>&1 || exit $?
 fi
 
 echo "--- $(date '+%Y-%m-%d %I:%M:%S %p %Z') agent-tmp-cleanup (days=$DAYS dry_run=$DRY_RUN) ---"
@@ -30,12 +30,12 @@ if [ ! -d "$ROOT" ]; then
 fi
 
 if [ "$DRY_RUN" = 1 ]; then
-  count=$(find "$ROOT" -xdev -mindepth 1 ! -type d -atime "+$DAYS" -mtime "+$DAYS" -print | wc -l | tr -d ' ')
+  count=$(find "$ROOT" -xdev -mindepth 1 ! -type d -atime "+$DAYS" -mtime "+$DAYS" -print0 | LC_ALL=C tr -cd '\000' | wc -c | tr -d ' ') || exit $?
   echo "would delete $count file(s)"
 else
-  count=$(find "$ROOT" -xdev -mindepth 1 ! -type d -atime "+$DAYS" -mtime "+$DAYS" -print -delete | wc -l | tr -d ' ')
+  count=$(find "$ROOT" -xdev -mindepth 1 ! -type d -atime "+$DAYS" -mtime "+$DAYS" -print0 -delete | LC_ALL=C tr -cd '\000' | wc -c | tr -d ' ') || exit $?
   echo "deleted $count file(s)"
-  find "$ROOT" -xdev -mindepth 1 -type d -empty -mtime +1 -delete
+  find "$ROOT" -xdev -mindepth 1 -type d -empty -mtime +1 -delete || exit $?
 fi
 
 du -sh "$ROOT"

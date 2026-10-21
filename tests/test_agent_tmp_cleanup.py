@@ -116,6 +116,65 @@ class AgentTmpCleanupTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("not found", result.stdout)
 
+    def test_find_failure_exits_nonzero_without_claiming_success(self):
+        for dry_run in ("0", "1"):
+            with self.subTest(dry_run=dry_run):
+                result = self.run_cleanup(
+                    AGENT_TMP_DAYS="invalid", AGENT_TMP_DRY_RUN=dry_run,
+                )
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("find:", result.stderr)
+                self.assertNotIn("file(s)", result.stdout)
+
+    def test_prune_failure_exits_nonzero(self):
+        bin_dir = self.tmp / "bin"
+        bin_dir.mkdir()
+        find = bin_dir / "find"
+        find.write_text(
+            '#!/bin/sh\n'
+            'case " $* " in\n'
+            '  *" -empty "*) echo "find: simulated prune failure" >&2; exit 23 ;;\n'
+            'esac\n'
+            'exec /usr/bin/find "$@"\n'
+        )
+        find.chmod(0o755)
+
+        result = self.run_cleanup(PATH=f"{bin_dir}:/usr/bin:/bin")
+
+        self.assertEqual(result.returncode, 23)
+        self.assertIn("simulated prune failure", result.stderr)
+
+    def test_log_setup_failure_stops_before_deleting_files(self):
+        (self.home / ".local").write_text("not a directory")
+        old = self.root / "old.txt"
+        old.write_text("keep")
+        self.age(old)
+
+        result = self.run_cleanup()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(result.stderr)
+        self.assertTrue(old.exists())
+
+    def test_unusual_filenames_count_as_one_file(self):
+        for name in ("old\nfile.txt", "viejo-ñ.txt"):
+            with self.subTest(name=name):
+                old = self.root / name
+                old.write_text("old")
+                self.age(old)
+
+                dry_run = self.run_cleanup(
+                    AGENT_TMP_DRY_RUN="1", LC_ALL="en_US.UTF-8",
+                )
+                result = self.run_cleanup(LC_ALL="en_US.UTF-8")
+
+                self.assertEqual(dry_run.returncode, 0, dry_run.stderr)
+                self.assertIn("would delete 1 file(s)", dry_run.stdout)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("deleted 1 file(s)", result.stdout)
+                self.assertFalse(old.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
