@@ -46,7 +46,9 @@ case "$1 $2" in
     ;;
   "sleepnow ")
     echo "sleepnow @$(cat "$d/clock")" >> "$d/pmset.log"
-    echo $(( $(cat "$d/clock") + 600 )) > "$d/clock"
+    if [ ! -f "$d/no_suspend" ]; then
+      echo $(( $(cat "$d/clock") + 600 )) > "$d/clock"
+    fi
     ;;
 esac
 """,
@@ -74,6 +76,15 @@ elif [ "$1" = "-r" ]; then
 else
   exec /bin/date -r "$(cat "$STUB_DIR/clock")" "$@"
 fi
+""",
+    "stat": """#!/bin/sh
+echo jp
+""",
+    "id": """#!/bin/sh
+echo 501
+""",
+    "launchctl": """#!/bin/sh
+printf '%s\\n' "$*" >> "$STUB_DIR/notifications.log"
 """,
     "sleep": """#!/bin/sh
 d="$STUB_DIR"
@@ -151,7 +162,10 @@ class KeepAwakeTests(unittest.TestCase):
             "KEEP_AWAKE_PAUSE_FILE": str(self.dir / "pause"),
             "KEEP_AWAKE_COOLDOWN_FILE": str(self.cooldown_file),
             "STUB_DIR": str(self.dir),
+            "KEEP_AWAKE_ALERTER_PATH": str(self.dir / "alerter"),
         }
+        (self.dir / "alerter").write_text("#!/bin/sh\nexit 0\n")
+        (self.dir / "alerter").chmod(0o755)
         result = subprocess.run(
             [str(BASH), str(ROOT / "keep-awake.sh"), "50"],
             env=env,
@@ -194,6 +208,11 @@ class KeepAwakeTests(unittest.TestCase):
         cooldown = int((self.cooldown_file).read_text())
         self.assertTrue(woke + COOLDOWN <= cooldown <= woke + COOLDOWN + 40, cooldown)
         self.assertNotIn("disablesleep 1", actions[sleepnow:])
+        notification = (self.dir / "notifications.log").read_text()
+        self.assertIn("asuser 501 sudo -u jp", notification)
+        self.assertIn("--title Keep Awake", notification)
+        self.assertIn("Slept to cool down (thermal Heavy). Sleep allowed until", notification)
+        self.assertIn("--group keep-awake", notification)
 
     def test_low_battery_idle_forced_sleep_completes(self):
         self.write("power", "Battery Power")
@@ -204,6 +223,22 @@ class KeepAwakeTests(unittest.TestCase):
         self.assertIn("no user input for 30m: forcing sleep", output)
         self.assertIn("sleepnow", [action for action, _ in self.pmset_events()])
         self.assertTrue(self.cooldown_file.read_text().strip().isdigit())
+        notification = (self.dir / "notifications.log").read_text()
+        self.assertIn("Slept after low-battery inactivity (battery 30%)", notification)
+        self.assertIn("Sleep allowed until", notification)
+        self.assertIn("--group keep-awake", notification)
+
+    def test_forced_sleep_without_observed_suspend_reports_request_did_not_take(self):
+        self.write("power", "Battery Power")
+        self.write("battery", 30)
+        self.write("idle", 1900)
+        (self.dir / "no_suspend").touch()
+        output = self.run_daemon()
+
+        self.assertIn("notification started for console user jp", output)
+        notification = (self.dir / "notifications.log").read_text()
+        self.assertIn("Sleep request didn't take (Slept after low-battery inactivity (battery 30%))", notification)
+        self.assertIn("--group keep-awake", notification)
 
     def test_restart_during_cooldown_holds_sleep_allowed(self):
         cooldown_until = CLOCK0 + 200
@@ -217,6 +252,7 @@ class KeepAwakeTests(unittest.TestCase):
         enables = self.enables()
         self.assertTrue(enables, "keep-awake should engage once the cooldown ends")
         self.assertGreaterEqual(min(enables), cooldown_until)
+        self.assertFalse((self.dir / "notifications.log").exists())
 
     def test_hot_at_startup_does_not_enable_until_cool(self):
         for level in ("Heavy", "Trapping", "Sleeping"):
