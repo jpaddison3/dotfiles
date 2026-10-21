@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jpaddison.todoist-quick-add</string>
+
+    <!-- Built from ~/personal-coding/todoist-quick-add (scripts/build-app.sh). -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/jpaddison/Applications/Todoist Quick Add.app/Contents/MacOS/TodoistQuickAdd</string>
+    </array>
+
+    <key>LimitLoadToSessionType</key>
+    <string>Aqua</string>
+    <key>ProcessType</key>
+    <string>Interactive</string>
+
+    <!-- Start at login; relaunch after a crash, but stay quit after a clean
+         exit (a deliberate quit, or the hotkey-unavailable alert). -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict><key>SuccessfulExit</key><false/></dict>
+</dict>
+</plist>

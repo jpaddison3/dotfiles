@@ -139,6 +139,12 @@ ln -f $SCRIPTPATH/com.jpaddison.codex-expire-sessions.plist ~/Library/LaunchAgen
 launchctl bootout gui/$(id -u)/com.jpaddison.codex-expire-sessions 2>/dev/null || true
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jpaddison.codex-expire-sessions.plist
 
+# Todoist Quick Add (~/personal-coding/todoist-quick-add) at login, relaunched
+# on crash. Build and copy the app into ~/Applications first.
+ln -f $SCRIPTPATH/com.jpaddison.todoist-quick-add.plist ~/Library/LaunchAgents/com.jpaddison.todoist-quick-add.plist
+launchctl bootout gui/$(id -u)/com.jpaddison.todoist-quick-add 2>/dev/null || true
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jpaddison.todoist-quick-add.plist
+
 # Software installation:
 # Manual install: pure prompt (brew failed), ohmyzsh, cargo, nvm, yarn
 brew install tmux tmuxinator reattach-to-user-namespace neovim coreutils
