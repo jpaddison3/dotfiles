@@ -53,6 +53,8 @@ DIAGNOSTIC_INTERVAL_SECONDS=300  # periodic safety snapshot; avoids 10s log spam
 # environment and sudo resets env, so they're not an escalation path).
 PAUSE_FILE="${KEEP_AWAKE_PAUSE_FILE:-/tmp/keep-awake.pause}"   # present + unexpired = temporarily allow sleep
 COOLDOWN_FILE="${KEEP_AWAKE_COOLDOWN_FILE:-/var/run/keep-awake.cooldown}"  # survives daemon restarts, cleared on reboot; root-only dir
+ALERTER_PATH="${KEEP_AWAKE_ALERTER_PATH:-/opt/homebrew/bin/alerter}"
+NOTIFICATION_PID=""
 
 # Overheat safety knobs (see the loop below).
 TRIGGER_LEVEL="Heavy"   # force sleep at this thermal pressure or worse:
@@ -253,8 +255,23 @@ trap 'exit 143' TERM   # a returning TERM handler would resume the loop and re-a
 # instant effect — self-correct on the next pass instead of drifting.
 current_disablesleep() { pmset -g | awk '/SleepDisabled/{print $2; exit}'; }
 
+retire_completed_notification() {
+  local running_pid
+  [[ -n "${NOTIFICATION_PID}" ]] || return 0
+  # Bash reaps completed children, so a saved PID can later belong to someone
+  # else. Only the shell's running jobs still identify a notifier we own.
+  for running_pid in $(jobs -pr); do
+    [[ "${running_pid}" != "${NOTIFICATION_PID}" ]] || return 0
+  done
+  NOTIFICATION_PID=""
+}
+
 force_sleep_and_start_cooldown() {
   set_sleep 0                # must drop the override first, or sleepnow is ignored
+  # Start observing before the request: pmset sleepnow can itself block across
+  # suspend and return only after wake, so starting afterward misses that jump.
+  local sleep_start ticked suspended message console_user console_uid
+  sleep_start="$(date +%s)"; ticked=0; suspended=0
   if set_sleep_now; then
     log_message "sleep request returned: status=0; duration=${SLEEPNOW_DURATION}s; wall-clock observation"
   else
@@ -265,12 +282,10 @@ force_sleep_and_start_cooldown() {
   # lid cannot immediately trigger another forced sleep before the first input.
   # A genuine suspend shows up as the wall clock jumping beyond the time spent
   # in this loop. Bail out after ~30s if another assertion blocks the sleep.
-  local sleep_start ticked
-  sleep_start="$(date +%s)"; ticked=0
   while (( ticked < 30 )); do
     sleep 2; ticked=$(( ticked + 2 ))
     # ≥8s of wall clock beyond what we actually slept ⇒ we were suspended.
-    if (( $(date +%s) - sleep_start - ticked >= 8 )); then break; fi
+    if (( $(date +%s) - sleep_start - ticked >= 8 )); then suspended=1; break; fi
   done
   # no quotes inside $(( )): /bin/bash 3.2 rejects "$(…)" there (CS-2434)
   cooldown_until=$(( $(date +%s) + COOLDOWN_SECONDS ))
@@ -279,6 +294,49 @@ force_sleep_and_start_cooldown() {
   { printf '%s\n' "${cooldown_until}" > "${COOLDOWN_FILE}.tmp" \
       && mv -f "${COOLDOWN_FILE}.tmp" "${COOLDOWN_FILE}"; } 2>/dev/null \
     || log_message "couldn't persist cooldown to ${COOLDOWN_FILE}"
+  if (( suspended == 1 )); then
+    message="${FORCED_SLEEP_REASON}. Sleep allowed until $(date -r "${cooldown_until}" '+%-I:%M %p')."
+  else
+    message="Sleep request didn't take (${FORCED_SLEEP_REASON}). Sleep allowed until $(date -r "${cooldown_until}" '+%-I:%M %p')."
+  fi
+  if [[ ! -x "${ALERTER_PATH}" ]]; then
+    log_message "notification skipped: alerter missing at ${ALERTER_PATH}"
+  else
+    console_user="$(stat -f %Su /dev/console 2>/dev/null || true)"
+    if [[ -z "${console_user}" || "${console_user}" == root || "${console_user}" == loginwindow ]]; then
+      log_message "notification skipped: no logged-in console user"
+    else
+      console_uid="$(id -u "${console_user}" 2>/dev/null || true)"
+      if [[ ! "${console_uid}" =~ ^[0-9]+$ ]]; then
+        log_message "notification skipped: couldn't resolve console user ${console_user}"
+      else
+        retire_completed_notification
+        if [[ -n "${NOTIFICATION_PID}" ]]; then
+          kill "${NOTIFICATION_PID}" 2>/dev/null || true
+          NOTIFICATION_PID=""
+        fi
+        # Keep alerter out of the daemon's loop: it stays alive until dismissed.
+        # Its wrapper logs an asynchronous launch failure and forwards TERM so
+        # a later forced sleep can stop the previous alerter process.
+        (
+          notifier_child=""
+          notifier_stopping=0
+          trap 'notifier_stopping=1; [[ -z "${notifier_child}" ]] || kill "${notifier_child}" 2>/dev/null || true' TERM INT
+          launchctl asuser "${console_uid}" sudo -u "${console_user}" \
+            "${ALERTER_PATH}" --title "Keep Awake" --message "${message}" \
+            --group keep-awake >/dev/null 2>&1 &
+          notifier_child=$!
+          if wait "${notifier_child}"; then
+            :
+          elif (( notifier_stopping == 0 )); then
+            log_message "notification failed: alerter exited unsuccessfully"
+          fi
+        ) &
+        NOTIFICATION_PID=$!
+        log_message "notification started for console user ${console_user}"
+      fi
+    fi
+  fi
   last_logged=""
 }
 
@@ -313,6 +371,7 @@ set_sleep 0
 previous_loop_start=""
 previous_thermal_sample=""
 while true; do
+  retire_completed_notification
   loop_start="$(date +%s)"
   loop_gap=unknown
   if [[ "${previous_loop_start}" =~ ^[0-9]+$ && "${loop_start}" =~ ^[0-9]+$ ]] && (( loop_start >= previous_loop_start )); then
@@ -430,6 +489,7 @@ while true; do
     && (( idle >= LOW_BATTERY_IDLE_SECONDS )) \
     && (( now >= cooldown_until )); then
     log_message "battery ${pct}%, no user input for 30m: forcing sleep"
+    FORCED_SLEEP_REASON="Slept after low-battery inactivity (battery ${pct}%)"
     force_sleep_and_start_cooldown
     continue
   fi
@@ -510,6 +570,7 @@ while true; do
     fi
     if (( hot_count >= THERMAL_DEBOUNCE )); then
       log_message "thermal ${level} (x${hot_count}): forcing sleep to cool down"
+      FORCED_SLEEP_REASON="Slept to cool down (thermal ${level})"
       hot_count=0
       force_sleep_and_start_cooldown
       continue
