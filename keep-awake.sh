@@ -255,6 +255,17 @@ trap 'exit 143' TERM   # a returning TERM handler would resume the loop and re-a
 # instant effect — self-correct on the next pass instead of drifting.
 current_disablesleep() { pmset -g | awk '/SleepDisabled/{print $2; exit}'; }
 
+retire_completed_notification() {
+  local running_pid
+  [[ -n "${NOTIFICATION_PID}" ]] || return 0
+  # Bash reaps completed children, so a saved PID can later belong to someone
+  # else. Only the shell's running jobs still identify a notifier we own.
+  for running_pid in $(jobs -pr); do
+    [[ "${running_pid}" != "${NOTIFICATION_PID}" ]] || return 0
+  done
+  NOTIFICATION_PID=""
+}
+
 force_sleep_and_start_cooldown() {
   set_sleep 0                # must drop the override first, or sleepnow is ignored
   # Start observing before the request: pmset sleepnow can itself block across
@@ -299,7 +310,8 @@ force_sleep_and_start_cooldown() {
       if [[ ! "${console_uid}" =~ ^[0-9]+$ ]]; then
         log_message "notification skipped: couldn't resolve console user ${console_user}"
       else
-        if [[ -n "${NOTIFICATION_PID}" ]] && kill -0 "${NOTIFICATION_PID}" 2>/dev/null; then
+        retire_completed_notification
+        if [[ -n "${NOTIFICATION_PID}" ]]; then
           kill "${NOTIFICATION_PID}" 2>/dev/null || true
           NOTIFICATION_PID=""
         fi
@@ -359,6 +371,7 @@ set_sleep 0
 previous_loop_start=""
 previous_thermal_sample=""
 while true; do
+  retire_completed_notification
   loop_start="$(date +%s)"
   loop_gap=unknown
   if [[ "${previous_loop_start}" =~ ^[0-9]+$ && "${loop_start}" =~ ^[0-9]+$ ]] && (( loop_start >= previous_loop_start )); then

@@ -1,6 +1,8 @@
 import os
 import re
+import signal
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -194,6 +196,128 @@ class KeepAwakeTests(unittest.TestCase):
 
     def enables(self):
         return [clock for action, clock in self.pmset_events() if action == "disablesleep 1"]
+
+    def run_notification_probe(self, commands, **extra_env):
+        # Load the real functions without starting the daemon. Stub only power
+        # operations and elapsed sleeps; notifier wrappers and signals are real.
+        definitions = (ROOT / "keep-awake.sh").read_text().split('echo "Watching power:', 1)[0]
+        launcher = self.dir / "bin" / "launchctl"
+        launcher.write_text(f"""#!{sys.executable}
+import os
+import signal
+from pathlib import Path
+
+directory = Path(os.environ['STUB_DIR'])
+def record(name):
+    with (directory / name).open('a') as stream:
+        stream.write(str(os.getpid()) + '\\n')
+def stop(signum, frame):
+    record('notifier.stopped')
+    raise SystemExit(0)
+signal.signal(signal.SIGTERM, stop)
+record('notifier.started')
+if os.environ.get('NOTIFIER_COMPLETES') != '1':
+    while True:
+        signal.pause()
+""")
+        launcher.chmod(0o755)
+        env = {
+            **os.environ,
+            "PATH": f"{self.dir / 'bin'}:/usr/bin:/bin",
+            "KEEP_AWAKE_NO_SUDO": "1",
+            "KEEP_AWAKE_ALERTER_PATH": str(launcher),
+            "KEEP_AWAKE_COOLDOWN_FILE": str(self.cooldown_file),
+            "STUB_DIR": str(self.dir),
+            **extra_env,
+        }
+        driver = definitions + """
+trap - EXIT
+set_sleep() { :; }
+set_sleep_now() { SLEEPNOW_DURATION=0; }
+sleep() { :; }
+log_message() { :; }
+FORCED_SLEEP_REASON='Test only; no sleep happened'
+""" + commands
+        process = subprocess.Popen(
+            [str(BASH)], env=env, stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, start_new_session=True,
+        )
+        try:
+            output, errors = process.communicate(driver, timeout=30)
+            self.assertEqual(process.returncode, 0, output + errors)
+            return output
+        finally:
+            # The session contains only this probe's wrappers and launchers.
+            # Settle them even if an assertion or the hang guard fails.
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.communicate(timeout=5)
+
+    def test_completed_notification_tracking_is_retired(self):
+        output = self.run_notification_probe("""
+force_sleep_and_start_cooldown
+while kill -0 "$NOTIFICATION_PID" 2>/dev/null; do /bin/sleep 0.01; done
+retire_completed_notification
+printf 'tracked=%s\\n' "$NOTIFICATION_PID"
+""", NOTIFIER_COMPLETES="1")
+        self.assertEqual(output, "tracked=\n")
+        self.assertEqual(len((self.dir / "notifier.started").read_text().splitlines()), 1)
+
+    def test_stale_notification_tracking_does_not_signal_unrelated_process(self):
+        # The Python-owned sibling is not a background job of the daemon shell.
+        # Injecting its PID models reuse after a notifier has been reaped.
+        unrelated = subprocess.Popen(
+            [str(BASH), "-c", "printf 'ready\\n'; read -r release"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
+        )
+        try:
+            self.assertEqual(unrelated.stdout.readline(), "ready\n")
+            self.run_notification_probe("""
+force_sleep_and_start_cooldown
+wait "$NOTIFICATION_PID"
+NOTIFICATION_PID="$UNRELATED_PID"
+force_sleep_and_start_cooldown
+wait "$NOTIFICATION_PID"
+""", NOTIFIER_COMPLETES="1", UNRELATED_PID=str(unrelated.pid))
+            self.assertIsNone(unrelated.poll(), "replacement must leave the unrelated process alive")
+            self.assertEqual(len((self.dir / "notifier.started").read_text().splitlines()), 2)
+        finally:
+            if unrelated.poll() is None:
+                unrelated.terminate()
+            unrelated.communicate(timeout=5)
+
+    def test_live_notification_replacement_forwards_term_and_stays_async(self):
+        output = self.run_notification_probe("""
+force_sleep_and_start_cooldown
+first_wrapper="$NOTIFICATION_PID"
+# A real pending launcher proves the function returned before dismissal.
+while [[ ! -s "$STUB_DIR/notifier.started" ]]; do /bin/sleep 0.01; done
+first_launcher="$(head -n 1 "$STUB_DIR/notifier.started")"
+kill -0 "$first_launcher"
+force_sleep_and_start_cooldown
+second_wrapper="$NOTIFICATION_PID"
+[[ "$first_wrapper" != "$second_wrapper" ]]
+while [[ ! -s "$STUB_DIR/notifier.stopped" ]] ||
+      [[ "$(wc -l < "$STUB_DIR/notifier.started")" -lt 2 ]]; do /bin/sleep 0.01; done
+wait "$first_wrapper" || true
+while kill -0 "$first_launcher" 2>/dev/null; do /bin/sleep 0.01; done
+second_launcher="$(tail -n 1 "$STUB_DIR/notifier.started")"
+kill -0 "$second_wrapper"
+kill -0 "$second_launcher"
+printf 'replacement pending; old notifier exited\\n'
+kill "$second_wrapper"
+wait "$second_wrapper" || true
+while kill -0 "$second_launcher" 2>/dev/null; do /bin/sleep 0.01; done
+""")
+        self.assertEqual(output, "replacement pending; old notifier exited\n")
+        started = (self.dir / "notifier.started").read_text().splitlines()
+        stopped = (self.dir / "notifier.stopped").read_text().splitlines()
+        self.assertEqual(len(started), 2)
+        self.assertNotEqual(started[0], started[1])
+        self.assertEqual(stopped, started, "TERM must reach each replaced/retired launcher")
 
     def test_overheat_forced_sleep_completes(self):
         self.write("power", "Battery Power")
