@@ -10,6 +10,9 @@ ROOT = Path(__file__).resolve().parents[1]
 BASH = Path("/bin/bash")
 CLOCK0 = 1791448000
 COOLDOWN = 300
+# Hang guard only: healthy runs end when the stub sleep exits 99. Idle runs
+# take up to ~18s (process spawning), and host load has pushed them past 30s.
+DAEMON_TIMEOUT_SECONDS = 120
 
 STUBS = {
     "pmset": """#!/bin/sh
@@ -157,7 +160,7 @@ class KeepAwakeTests(unittest.TestCase):
             env=env,
             text=True,
             capture_output=True,
-            timeout=30,
+            timeout=DAEMON_TIMEOUT_SECONDS,
         )
         output = result.stdout + result.stderr
         # The stub sleep exits 99 once max_sleeps is hit; that's how runs end.
@@ -208,7 +211,7 @@ class KeepAwakeTests(unittest.TestCase):
     def test_restart_during_cooldown_holds_sleep_allowed(self):
         cooldown_until = CLOCK0 + 200
         self.cooldown_file.write_text(f"{cooldown_until}\n")
-        self.write("max_sleeps", 60)
+        self.write("max_sleeps", 10)
         self.write("clock_jump_after", "5 300")
         output = self.run_daemon()
 
@@ -405,6 +408,7 @@ class KeepAwakeTests(unittest.TestCase):
     def test_garbage_cooldown_file(self):
         with self.subTest(case="not a number"):
             self.cooldown_file.write_text("abc\n")
+            self.write("max_sleeps", 2)
             output = self.run_daemon()
             self.assertNotIn("resuming cooldown", output)
             self.assertEqual(self.enables()[0], CLOCK0)
@@ -412,7 +416,7 @@ class KeepAwakeTests(unittest.TestCase):
         with self.subTest(case="far future is clamped"):
             self.write("clock", CLOCK0)
             self.write("sleep_count", 0)
-            self.write("max_sleeps", 60)
+            self.write("max_sleeps", 35)
             (self.dir / "pmset.log").write_text("")
             self.cooldown_file.write_text(f"{CLOCK0 + 99999}\n")
             output = self.run_daemon()
