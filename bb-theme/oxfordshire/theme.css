@@ -1,0 +1,158 @@
+/*
+ * Oxfordshire — Cotswold stone frame, Oxford blue accent.
+ *
+ * Goal: make bb recognizable among the many apps that use a white content
+ * area inside a light-gray frame. The frame gets a subtle honey-stone tint,
+ * the panels a whisper of it, and the editing area stays near-white. One
+ * muted Oxford blue carries buttons, selection, checked controls, focus,
+ * links, and file paths.
+ *
+ * Light/dark follows bb's per-window Appearance mode (set it to System).
+ *
+ * Layers in the desktop app's framed shell:
+ *   frame (title bar, icon rail, tab strip) -> --oxf-frame, plus bb's 6%
+ *     --surface-recessed ink overlay, so it shows a touch deeper
+ *   panels (thread list, right split)       -> --sidebar
+ *   content                                  -> --canvas
+ * bb paints the frame and the panels with the same --sidebar token, so the
+ * frame gets its own background via [data-framed] below.
+ */
+
+:root,
+.light {
+  /* Anchors */
+  --canvas: oklch(99.65% 0.00225 85);
+  --ink: oklch(30% 0.012 65);
+
+  /* Frame and panels */
+  --oxf-frame: oklch(95.8% 0.024 80);
+  --sidebar: oklch(98.6% 0.0084 84);
+  --sidebar-foreground: var(--ink);
+  --sidebar-accent: color-mix(in oklch, var(--ink) 12%, var(--sidebar));
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: color-mix(in oklch, var(--ink) 16%, var(--sidebar));
+
+  /* Accent: Oxford blue */
+  --primary: oklch(34% 0.075 256);
+  --primary-foreground: oklch(99.65% 0.00225 85);
+  --timeline-accent: oklch(48% 0.09 252);
+  --file-accent: var(--timeline-accent);
+
+  /* Text tiers (percentages chosen to match bb's default contrast) */
+  --muted-foreground: color-mix(in oklch, var(--ink) 79%, var(--canvas));
+  --readback-foreground: color-mix(in oklch, var(--ink) 74.5%, var(--canvas));
+  --subtle-foreground: color-mix(in oklch, var(--ink) 70%, var(--canvas));
+
+  /* Semantic — recognizable hues, slightly less saturated than default */
+  --destructive: oklch(50% 0.15 27);
+  --destructive-foreground: oklch(99.65% 0.00225 85);
+  --destructive-text: oklch(48% 0.15 27);
+  --warning: oklch(70% 0.13 60);
+  --warning-text: oklch(53% 0.11 55);
+  --attention: oklch(76% 0.13 82);
+  --success: oklch(66% 0.12 155);
+  --diff-added: oklch(45% 0.11 160);
+  --diff-removed: oklch(47% 0.14 28);
+  --pr-merged: oklch(52% 0.15 295);
+}
+
+.dark {
+  /* Anchors */
+  --canvas: oklch(20.5% 0.006 70);
+  --ink: oklch(84% 0.012 80);
+
+  /* Frame sits lighter than the content area; panels just above content */
+  --oxf-frame: oklch(24.5% 0.016 75);
+  --sidebar: oklch(21.8% 0.009 72);
+
+  /* Accent: Oxford blue, lifted for dark but kept dusty so filled buttons
+     don't glare; selection wash raised from bb's 12% to stay visible */
+  --primary: oklch(68% 0.06 250);
+  --primary-foreground: oklch(18% 0.03 256);
+  --surface-selected: color-mix(in oklab, var(--primary) 16%, transparent);
+  --timeline-accent: oklch(76% 0.08 250);
+
+  /* Text tiers */
+  --muted-foreground: color-mix(in oklch, var(--ink) 88%, var(--canvas));
+  --readback-foreground: color-mix(in oklch, var(--ink) 78%, var(--canvas));
+  --subtle-foreground: color-mix(in oklch, var(--ink) 72.5%, var(--canvas));
+
+  /* Semantic */
+  --destructive: oklch(58% 0.16 24);
+  --destructive-foreground: oklch(99% 0 0);
+  --destructive-text: oklch(72% 0.13 24);
+  --warning: oklch(74% 0.13 60);
+  --warning-text: oklch(74% 0.13 60);
+  --attention: oklch(80% 0.13 82);
+  --success: oklch(72% 0.12 155);
+  --diff-added: oklch(76% 0.13 160);
+  --diff-removed: oklch(72% 0.15 24);
+  --pr-merged: oklch(68% 0.15 295);
+}
+
+/*
+ * Component hooks. Unlayered rules here outrank bb's Tailwind utilities.
+ * These target class names, so a bb update could silently drop them; the
+ * fallback is just bb's default look for that element.
+ */
+
+/* The outer frame keeps the stone tint while panels inside it stay light. */
+[data-framed] {
+  background-color: var(--oxf-frame);
+}
+
+/* bb's default button (Send, primary actions) paints with the text color;
+   give it the Oxford blue accent instead. */
+.bg-foreground.text-background {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+.bg-foreground.text-background:hover {
+  background-color: color-mix(in oklab, var(--primary) 88%, var(--canvas));
+}
+.border-foreground.bg-foreground.text-background {
+  border-color: var(--primary);
+}
+
+/* Stop (shown in Send's place while a run is going) is a secondary button by
+   default, a flat gray chip; match Send instead. */
+[data-promptbox-submit-action][aria-label="Stop run"] {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+[data-promptbox-submit-action][aria-label="Stop run"]:hover {
+  background-color: color-mix(in oklab, var(--primary) 88%, var(--canvas));
+}
+
+/* Checked switches and checkboxes */
+.data-\[state\=checked\]\:bg-foreground[data-state="checked"] {
+  background-color: var(--primary);
+}
+.data-\[state\=checked\]\:border-foreground[data-state="checked"] {
+  border-color: var(--primary);
+}
+.data-\[state\=checked\]\:text-background[data-state="checked"] {
+  color: var(--primary-foreground);
+}
+
+/* Selected radio dots (settings) and their rings */
+.rounded-full.bg-foreground:is(.size-2, .size-1\.5) {
+  background-color: var(--primary);
+}
+.rounded-full.border-foreground:has(> .rounded-full.bg-foreground) {
+  border-color: var(--primary);
+}
+
+/* Selected thread in the sidebar: a light Oxford blue wash instead of gray */
+.bb-sidebar-selected-row {
+  background-color: var(--surface-selected);
+}
+[data-sidebar-sticky-stack] [data-sidebar-sticky-tier].bb-sidebar-selected-row {
+  background-image: linear-gradient(var(--surface-selected), var(--surface-selected)),
+    linear-gradient(var(--sidebar), var(--sidebar));
+}
+
+/* Active tab pill (right split and other tab strips) */
+.group\/tab-pill.bg-state-active {
+  background-color: var(--surface-selected);
+}
