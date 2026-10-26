@@ -40,6 +40,14 @@ mkdir -p ~/.config/git
 ln -sf $SCRIPTPATH/gitignore-global ~/.config/git/ignore
 # You'll need to copy the git config yourself to edit your email in
 
+# bb app themes. Each theme needs a real folder under ~/.bb/theme: bb resolves a
+# symlinked folder but leaves it out of `bb theme list` and Settings, so link the
+# theme.css file instead. Activate with `bb theme set oxfordshire`.
+for theme in $SCRIPTPATH/bb-theme/*/; do
+  mkdir -p ~/.bb/theme/"$(basename "$theme")"
+  ln -sf "${theme}theme.css" ~/.bb/theme/"$(basename "$theme")"/theme.css
+done
+
 # Passwordless sudo for my user. Drop-in (not /etc/sudoers directly) so a bad edit
 # can't lock sudo out; visudo -cf validates before we trust it. Tradeoff: any process
 # running as me can reach root with no friction — accepted on a personal machine.
