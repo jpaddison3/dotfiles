@@ -54,10 +54,11 @@ sudo visudo -cf /etc/sudoers.d/$(whoami)-nopasswd
 mkdir -p ~/.claude
 mkdir -p ~/.claude/skills
 ln -sf $SCRIPTPATH/root-claude-md.md ~/.claude/CLAUDE.md
-ln -sf $SCRIPTPATH/claude-skills/review-codex ~/.claude/skills/review-codex
-ln -sf $SCRIPTPATH/claude-skills/review-claude ~/.claude/skills/review-claude
-ln -sf $SCRIPTPATH/claude-skills/review-multi ~/.claude/skills/review-multi
-ln -sf $SCRIPTPATH/claude-skills/rpr ~/.claude/skills/rpr
+# Every skill in claude-skills/ is installed for Claude (-n so a re-run replaces the
+# link instead of creating one inside the linked directory)
+for skill in $SCRIPTPATH/claude-skills/*/; do
+  ln -sfn "${skill%/}" ~/.claude/skills/"$(basename "$skill")"
+done
 for claude_config_dir in ~/.claude ~/.claude-gmail ~/.claude-team; do
   if [ -d "$claude_config_dir" ]; then
     ln -sf $SCRIPTPATH/statusline-command.sh "$claude_config_dir/statusline-command.sh"
@@ -91,21 +92,25 @@ ln -sf $SCRIPTPATH/claude-accounts ~/.config/claude-accounts
 
 # Codex skills
 mkdir -p ~/.codex/skills
-ln -sf $SCRIPTPATH/claude-skills/asana ~/.codex/skills/asana
-ln -sf $SCRIPTPATH/claude-skills/betterheap ~/.codex/skills/betterheap
-ln -sf $SCRIPTPATH/claude-skills/ci ~/.codex/skills/ci
-ln -sf $SCRIPTPATH/claude-skills/cpr ~/.codex/skills/cpr
-ln -sf $SCRIPTPATH/claude-skills/linear ~/.codex/skills/linear
-ln -sf $SCRIPTPATH/claude-skills/review-codex ~/.codex/skills/review-codex
-ln -sf $SCRIPTPATH/claude-skills/review-claude ~/.codex/skills/review-claude
+# Not for Codex: `codex` drives the Codex CLI from Claude. review-claude and review-codex
+# stay out because Codex agents told to review would pick them up unasked and spawn
+# nested reviews (CS-3566); review-multi still reaches them by relative path.
+for skill in $SCRIPTPATH/claude-skills/*/; do
+  case "$(basename "$skill")" in
+    codex|review-claude|review-codex) continue ;;
+  esac
+  ln -sfn "${skill%/}" ~/.codex/skills/"$(basename "$skill")"
+done
+# Drop links to skills that have since been deleted from claude-skills/
+for link in ~/.claude/skills/* ~/.codex/skills/*; do
+  if [ -L "$link" ] && [ ! -e "$link" ] && [[ "$(readlink "$link")" == "$SCRIPTPATH"/claude-skills/* ]]; then
+    rm "$link"
+  fi
+done
 
 # Codex sandbox access for agent scratch files (also add to ~/.codex/config.toml):
 # [sandbox_workspace_write]
 # writable_roots = ["/Users/jpaddison/.cache/agent-tmp"]
-ln -sf $SCRIPTPATH/claude-skills/review-multi ~/.codex/skills/review-multi
-ln -sf $SCRIPTPATH/claude-skills/rpr ~/.codex/skills/rpr
-ln -sf $SCRIPTPATH/claude-skills/sentry ~/.codex/skills/sentry
-ln -sf $SCRIPTPATH/claude-skills/writing-partner ~/.codex/skills/writing-partner
 
 # launchd-invoked scripts can't live inside ~/Documents — macOS's App
 # Management sandbox blocks bash from exec'ing files there, and symlinks
