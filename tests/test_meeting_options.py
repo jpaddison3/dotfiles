@@ -33,6 +33,21 @@ class ShowTest(unittest.TestCase):
         self.assertIn("outside $BB_THREAD_STORAGE", line)
         self.assertNotIn("Image(", line)
 
+    def test_bb_thread_dotdot_name_inside_storage(self):
+        with tempfile.TemporaryDirectory() as storage:
+            env = {"BB_THREAD_ID": "thr_x", "BB_THREAD_STORAGE": storage}
+            with mock.patch.dict(os.environ, env):
+                line = render.show(os.path.join(storage, "..opts.png"))
+        self.assertIn('Image("$BB_THREAD_STORAGE/..opts.png")', line)
+
+    def test_bb_thread_without_storage(self):
+        env = {k: v for k, v in os.environ.items() if k != "BB_THREAD_STORAGE"}
+        env["BB_THREAD_ID"] = "thr_x"
+        with mock.patch.dict(os.environ, env, clear=True), mock.patch.object(render.subprocess, "run") as run:
+            line = render.show("/x/opts.png")
+        run.assert_not_called()
+        self.assertIn("BB_THREAD_STORAGE is unset", line)
+
     def test_outside_bb_opens_preview_even_in_orca(self):
         env = {k: v for k, v in os.environ.items() if k != "BB_THREAD_ID"}
         env["ORCA_WORKTREE_ID"] = "wt_x"

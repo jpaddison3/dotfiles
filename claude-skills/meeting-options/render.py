@@ -283,8 +283,10 @@ def show(png):
     """Open the PNG where JP can see it and return a line saying truthfully where it is."""
     if os.environ.get('BB_THREAD_ID'):
         storage = os.environ.get('BB_THREAD_STORAGE')
-        rel = storage and os.path.relpath(os.path.realpath(png), os.path.realpath(storage))
-        if not rel or rel.startswith('..'):
+        if not storage:
+            return 'not opened: in a bb thread, but BB_THREAD_STORAGE is unset, so this PNG can\'t be shown inline'
+        rel = os.path.relpath(os.path.realpath(png), os.path.realpath(storage))
+        if rel == os.pardir or rel.startswith(os.pardir + os.sep):
             return ('not opened: in a bb thread, but this PNG is outside $BB_THREAD_STORAGE, so it can\'t be shown '
                     'inline. Render again with -o "$BB_THREAD_STORAGE/<name>.png"')
         return f'not opened: in a bb thread, show it inline in your reply with Image("$BB_THREAD_STORAGE/{rel}") in a ui block'
