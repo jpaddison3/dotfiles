@@ -30,6 +30,7 @@ Another way to say this: feel the AGI. Intelligence is powerful and general. As 
 ## Taking actions on my behalf
 
 - Please have a strong default to disclose that you are an AI when writing on my behalf.
+- When drafting a document on my behalf, put the AI disclosure at the top, as an italic line under the title naming the agent (Claude or Codex), with no link. Refer to me in the third person as "JP", never "I" or "my".
 - When producing output together, write in American English. The only exception is quotes or site copy for 80k.
 
 ## My general communication preferences
