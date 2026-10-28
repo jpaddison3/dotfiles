@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Render candidate meeting slots over guests' calendars as a Google-Calendar-style week view.
 
-Usage: render.py SPEC.json [-o OUT.png] [--open] [--focus]
+Usage: render.py SPEC.json [-o OUT.png] [--open]
 
 SPEC (JSON):
   title         heading, e.g. "Huon / JP post-bout"
@@ -20,11 +20,11 @@ SPEC (JSON):
                   events are converted (declined and cancelled ones dropped).
   options       [{label, start, end, note?, recommended?}]
 
-Writes OUT.png (default: alongside SPEC) via headless Chrome. --open shows it in
-Orca when running inside Orca (copied into the worktree's git-excluded
-.meeting-options/ folder, since Orca only opens worktree files), else in Preview.
+Writes OUT.png (default: alongside SPEC) via headless Chrome. --open opens it in
+Preview, except in a bb thread (BB_THREAD_ID set), where it opens nothing and says
+to show the image inline in the reply instead.
 """
-import argparse, html, json, math, os, shutil, subprocess, sys, tempfile
+import argparse, html, json, math, os, subprocess, sys, tempfile
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -279,35 +279,26 @@ def render(doc, width, height, out_png):
                        check=True, capture_output=True)
 
 
-def show(png, focus):
-    if os.environ.get('ORCA_WORKTREE_ID'):
-        top = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True).stdout.strip()
-        if top:
-            dest_dir = os.path.join(top, '.meeting-options')
-            os.makedirs(dest_dir, exist_ok=True)
-            exclude = subprocess.run(['git', 'rev-parse', '--git-path', 'info/exclude'], cwd=top,
-                                     capture_output=True, text=True).stdout.strip()
-            exclude = os.path.join(top, exclude) if exclude and not os.path.isabs(exclude) else exclude
-            if exclude:
-                existing = open(exclude).read() if os.path.exists(exclude) else ''
-                if '.meeting-options/' not in existing.split('\n'):
-                    with open(exclude, 'a') as f:
-                        f.write(('' if existing.endswith('\n') or not existing else '\n') + '.meeting-options/\n')
-            dest = os.path.join(dest_dir, os.path.basename(png))
-            if os.path.abspath(png) != dest:
-                shutil.copyfile(png, dest)
-            subprocess.run(['orca', 'file', 'open', dest] + (['--focus'] if focus else []), check=True)
-            return dest
+def show(png):
+    """Open the PNG where JP can see it and return a line saying truthfully where it is."""
+    if os.environ.get('BB_THREAD_ID'):
+        storage = os.environ.get('BB_THREAD_STORAGE')
+        if not storage:
+            return 'not opened: in a bb thread, but BB_THREAD_STORAGE is unset, so this PNG can\'t be shown inline'
+        rel = os.path.relpath(os.path.realpath(png), os.path.realpath(storage))
+        if rel == os.pardir or rel.startswith(os.pardir + os.sep):
+            return ('not opened: in a bb thread, but this PNG is outside $BB_THREAD_STORAGE, so it can\'t be shown '
+                    'inline. Render again with -o "$BB_THREAD_STORAGE/<name>.png"')
+        return f'not opened: in a bb thread, show it inline in your reply with Image("$BB_THREAD_STORAGE/{rel}") in a ui block'
     subprocess.run(['open', '-a', 'Preview', png], check=True)
-    return png
+    return f'opened in Preview: {png}'
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('spec')
     ap.add_argument('-o', '--out')
-    ap.add_argument('--open', action='store_true', help='show the image in Orca (or Preview outside Orca)')
-    ap.add_argument('--focus', action='store_true', help='with --open in Orca, switch the view to the image')
+    ap.add_argument('--open', action='store_true', help='open the image in Preview (in a bb thread, open nothing)')
     a = ap.parse_args()
     with open(a.spec) as f:
         spec = json.load(f)
@@ -316,7 +307,7 @@ def main():
     render(doc, width, height, out)
     print(out)
     if a.open:
-        print('opened:', show(out, a.focus))
+        print(show(out))
 
 
 if __name__ == '__main__':
