@@ -21,7 +21,8 @@ JP picks times faster from a picture than from a list of slots. Whenever you put
    python3 ~/.claude/skills/meeting-options/render.py <spec.json> --open
    ```
    It prints the PNG's path, then a line saying where the image is.
-   - **In bb** (`BB_THREAD_ID` is set), `--open` opens nothing. After step 5, put the image in your reply with a `ui` block. The PNG is named after the spec (`huon-jp.json` → `huon-jp.png`); keep the literal `$BB_THREAD_STORAGE` in the path:
+   - **In bb** (`BB_THREAD_ID` is set), `--open` opens nothing. After step 5, put the image in your reply with a `ui` block, copying the `Image("$BB_THREAD_STORAGE/…")` path `render.py` printed (keep the literal `$BB_THREAD_STORAGE`). If it says the PNG is outside `$BB_THREAD_STORAGE`, render again with `-o "$BB_THREAD_STORAGE/<name>.png"`.
+     For example:
      ````
      ```ui
      Card("Huon / JP options", [Image("$BB_THREAD_STORAGE/huon-jp.png", alt: "Week view with options A–C")])

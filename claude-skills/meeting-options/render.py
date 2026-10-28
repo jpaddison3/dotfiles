@@ -282,7 +282,12 @@ def render(doc, width, height, out_png):
 def show(png):
     """Open the PNG where JP can see it and return a line saying truthfully where it is."""
     if os.environ.get('BB_THREAD_ID'):
-        return 'not opened: in a bb thread, show this PNG inline in your reply with a ui Image(...) block'
+        storage = os.environ.get('BB_THREAD_STORAGE')
+        rel = storage and os.path.relpath(os.path.realpath(png), os.path.realpath(storage))
+        if not rel or rel.startswith('..'):
+            return ('not opened: in a bb thread, but this PNG is outside $BB_THREAD_STORAGE, so it can\'t be shown '
+                    'inline. Render again with -o "$BB_THREAD_STORAGE/<name>.png"')
+        return f'not opened: in a bb thread, show it inline in your reply with Image("$BB_THREAD_STORAGE/{rel}") in a ui block'
     subprocess.run(['open', '-a', 'Preview', png], check=True)
     return f'opened in Preview: {png}'
 
