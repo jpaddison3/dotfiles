@@ -1,7 +1,7 @@
 * JP Addison's Personal Configuration Files
 Welcome to the repository where I keep my configuration files. This repository is going to be messy, and it's time I accept that. Not meant to be used without my context.
 ** Tools
-As of 2020-08, I use vscode (with vim emulation) for my editor. bash in iTerm2 is my shell. I program primarily in TypeScript. My favorite editor from a UI perspective was spacemacs. I really want the ~<leader> key key~ pattern to catch on.
+As of 2020-08, I use VS Code (with vim emulation) for my editor. bash in iTerm2 is my shell. I program primarily in TypeScript. My favorite editor from a UI perspective was spacemacs. I really want the ~<leader> key key~ pattern to catch on.
 ** Setup
 Clone to ~~/personal-coding/dotfiles~, not anywhere under ~~/Documents~: macOS privacy protection intermittently refuses reads there, which breaks every symlinked config file. Run `./newcomputer.bash` to set up symlinks and configurations on a new machine. This script will:
 - Create symlinks for shell configurations (bash, zsh)
