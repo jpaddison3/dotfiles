@@ -9,7 +9,8 @@ JP picks times faster from a picture than from a list of slots. Whenever you put
 ## Steps
 
 1. **Pull calendars.** For JP and each guest, call the Google Calendar connector's `list_events` with `calendarId` set to the guest's email, over the week you're showing. Colleagues' 80k calendars are usually readable. Check `80k-org-chart` if you aren't sure who someone is.
-2. **Pick the options yourself.** Choose 2–4 slots that are free for everyone and sensible in each person's local hours. Mark your pick with `"recommended": true`, and give every option a short `note` saying why it's there or what it costs.
+2. **Pick the options yourself.** Choose 2–4 slots that are free for everyone and sensible in each person's local hours (JP's day starts at 9:30am ET). Mark your pick with `"recommended": true`, and give every option a short `note` saying why it's there or what it costs.
+   - **Free means free.** Don't count a slot as open just because the meeting in it looks movable, optional, or overlaps the same people. If an option does sit on top of an existing event, it displaces that event. Say so in the option's `note` (for example "moves Luca 1:1 → Wed 12pm"), and in your text name each displaced meeting, who owns it, and where it would go. Prefer rescheduling over canceling, and treat 1:1s and other people's own blocks as costly to move unless you have evidence otherwise.
 3. **Write a spec** to your scratchpad. The full schema is in the docstring of `render.py`. For each person, pass either:
    - `gcal_json`: the path of a `list_events` result the harness saved to a file. Large results are saved automatically, so this costs nothing.
    - `events`: a compact list of `{title, start, end, status}`, transcribed from a result that came back inline.
@@ -21,6 +22,7 @@ JP picks times faster from a picture than from a list of slots. Whenever you put
    ```
    Run it from inside the current worktree. Orca only opens files inside the worktree, so `--open` copies the PNG into `<worktree>/.meeting-options/`, adds that folder to the repo's local `.git/info/exclude`, and runs `orca file open`. That opens a tab without moving JP's view. Add `--focus` only if JP asked to be taken to it. Outside Orca, the image opens in Preview instead. Never run `orca open`.
 5. **Check the PNG yourself** with Read before telling JP it's open. Look for clipped or mislabeled options and events at the wrong times.
+   - **Check every option for overlap.** For each option, list the events from every person's calendar that intersect it, working from the data rather than the picture. Then confirm in the PNG that each of those events' titles is still readable under the option box and its label. If a label collides with an event title, or titles are truncated past recognition, fix it before showing JP: shorten the event titles in the spec, or put the displaced meetings in the option's `note` so the legend spells them out. Your text should never mention a displaced meeting that the picture hides.
 
 ## Notes
 

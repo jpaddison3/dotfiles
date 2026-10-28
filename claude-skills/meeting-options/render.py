@@ -9,6 +9,7 @@ SPEC (JSON):
   secondary_tz  optional second time gutter (IANA), e.g. Europe/London
   week_start    first day shown, YYYY-MM-DD
   days          number of days, default 5
+  col_w         day column width in px, default max(210, 1050 / days)
   hours         [first, last] hour shown in tz, default fits options within 8am-6pm
   people        [{name, color?, busy_only?, events?: [...], gcal_json?: path}]
                   events: {title, start, end, status?} where status is one of
@@ -31,6 +32,7 @@ CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 # Google Calendar palette: Peacock, Grape, Basil, Tangerine, Blueberry, Flamingo, Graphite.
 PALETTE = ['#039be5', '#8e24aa', '#0b8043', '#f4511e', '#3f51b5', '#e67c73', '#616161']
 HOUR_PX, COL_W, GUTTER_W, HEAD_H = 56, 210, 56, 150
+OPT_W = 28  # right-hand strip per day for option markers, so labels never sit on event text
 
 
 def parse_time(s, tz):
@@ -98,6 +100,7 @@ def build(spec):
     tz2 = ZoneInfo(spec['secondary_tz']) if spec.get('secondary_tz') else None
     d0 = date.fromisoformat(spec['week_start'])
     ndays = spec.get('days', 5)
+    COL_W = spec.get('col_w') or max(210, 1050 // ndays)  # fewer days → wider columns, so side-by-side titles stay readable
     days = [d0 + timedelta(i) for i in range(ndays)]
     opts = [dict(o, s=parse_time(o['start'], tz), e=parse_time(o['end'], tz)) for o in spec.get('options', [])]
     if spec.get('hours'):
@@ -182,11 +185,12 @@ def build(spec):
     for i in range(ndays + 1):
         x = gutters + i * COL_W
         w(f'<div class="vline" style="left:{x}px;top:{HEAD_H - 6}px;height:{grid_h + ad_h + 6}px"></div>')
+    strip = OPT_W if opts else 0
     for i, d in enumerate(days):
         x0 = gutters + i * COL_W
         layout(timed[d])
         for ev in timed[d]:
-            cw = (COL_W - 10) / ev['ncols']
+            cw = (COL_W - 10 - strip) / ev['ncols']
             left, top = x0 + 1 + ev['col'] * cw, grid_top + y(ev['s']) + 1
             hgt = max(y(ev['e']) - y(ev['s']) - 2, 12)
             cls = {'free': 'ev free', 'needsAction': 'ev pending', 'tentative': 'ev pending'}.get(ev['status'], 'ev')
@@ -205,10 +209,12 @@ def build(spec):
             if o['s'].date() != d:
                 continue
             top, hgt = grid_top + y(o['s']), max(y(o['e']) - y(o['s']), 18)
-            cls = 'opt rec' if o.get('recommended') else 'opt'
-            star = ' ★' if o.get('recommended') else ''
-            w(f'<div class="{cls}" style="left:{x0 + 1}px;top:{top:.1f}px;width:{COL_W - 4}px;height:{hgt:.1f}px">'
-              f'<span class="olab">{html.escape(o["label"])}{star}</span> {span(o["s"], o["e"])}</div>')
+            rec = ' rec' if o.get('recommended') else ''
+            star = '<span class="star">★</span>' if rec else ''
+            # Outline across the events (no text inside it), plus a labeled bar in the reserved strip.
+            w(f'<div class="opt{rec}" style="left:{x0 + 1}px;top:{top - 1:.1f}px;width:{COL_W - 4}px;height:{hgt + 2:.1f}px"></div>')
+            w(f'<div class="obar{rec}" style="left:{x0 + COL_W - 4 - strip}px;top:{top:.1f}px;width:{strip - 2}px;'
+              f'height:{hgt:.1f}px"><span class="olab">{html.escape(o["label"])}</span>{star}</div>')
     ly = grid_top + grid_h + 24
     for k, o in enumerate(opts):
         star = ' ★ recommended' if o.get('recommended') else ''
@@ -248,9 +254,14 @@ div,span{position:absolute}
 .ad{height:20px;border-radius:4px;background:var(--c);color:#fff;font-size:11px;line-height:20px;padding:0 6px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ad.free{background:color-mix(in srgb,var(--c) 22%%,#fff);color:#3c4043}
-.opt{border:2px dashed #188038;background:rgba(24,128,56,.14);border-radius:6px;z-index:5;font-size:11px;color:#0d652d;
-  padding:1px 5px;font-weight:500;white-space:nowrap;overflow:hidden}
-.opt.rec{border-style:solid;background:rgba(24,128,56,.22);box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.opt{border:2px dashed #188038;background:rgba(24,128,56,.06);border-radius:6px;z-index:5}
+.opt.rec{border-style:solid;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.obar{z-index:6;border-radius:4px;background:#e6f4ea;border:2px dashed #188038;color:#0d652d;display:flex;
+  flex-direction:column;align-items:center;padding-top:3px;gap:2px;font-weight:600}
+.obar>*{position:static}
+.obar.rec{background:#188038;border-style:solid;color:#fff}
+.obar .olab{background:none;padding:0;color:inherit;font-size:14px}
+.obar .star{font-size:12px}
 .olab{position:static;display:inline-block;background:#188038;color:#fff;border-radius:4px;padding:0 5px;font-weight:600}
 .leg{font-size:13px;white-space:nowrap}
 """ % (width, height, GUTTER_W)
