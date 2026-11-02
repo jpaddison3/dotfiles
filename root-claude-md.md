@@ -18,6 +18,7 @@ I live in Cambridge, Massachusetts. My husband's name is Will.
 - Co-sign commits that you make with Co-Authored-By: (agent)
 - Orca is always running on this machine. Never run `orca open`; it raises the Orca window and steals my focus. Use `orca status --json` to check readiness.
 - In Codex, run every `gdoc` and `orca` command outside the sandbox: request escalated execution up front instead of trying the command sandboxed first.
+- Don't recommend that we report bugs upstream, unless I have a relationship with the maintainers. They don't like AI submitted feedback, and the ROI of me doing it manually is too low.
 
 ### Agent systems
 
