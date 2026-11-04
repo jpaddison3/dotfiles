@@ -7,7 +7,7 @@ description: Interact with Sentry — issues, errors, events, traces, releases, 
 
 Use the `sentry` CLI — Sentry's official command-line interface.
 
-Run `sentry -h` for the top-level commands, then `sentry <command> --help` to drill in. Add `--json` for machine-readable output. `sentry api <endpoint>` makes raw authenticated API requests, and `sentry schema` browses the API schema.
+Run `sentry -h` for the top-level commands, then `sentry <command> --help` to drill in. Add `--json` for machine-readable output. `sentry api <endpoint>` makes raw authenticated API requests (`--json` wraps the response as `{status, statusText, body}`; omit it to get the bare body), and `sentry schema` browses the API schema.
 
 ## Correlate with BetterStack
 
