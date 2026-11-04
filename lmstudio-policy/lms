@@ -1,0 +1,16 @@
+#!/bin/bash
+# Keep the native LM Studio CLI, but give manual loads the same idle policy as JIT.
+set -euo pipefail
+native_lms="${LMSTUDIO_NATIVE_LMS:-$HOME/.lmstudio/bin/lms}"
+if [[ ${1:-} == load ]]; then
+  has_ttl=false
+  for arg in "$@"; do
+    [[ $arg == -- ]] && break
+    case "$arg" in --ttl|--ttl=*) has_ttl=true ;; esac
+  done
+  if [[ $has_ttl == false ]]; then
+    shift
+    exec "$native_lms" load --ttl 1800 "$@"
+  fi
+fi
+exec "$native_lms" "$@"

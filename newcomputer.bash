@@ -104,6 +104,11 @@ ln -sf $SCRIPTPATH/codex-shim/vercel-refresh-guard ~/.local/codex-shim/vc
 mkdir -p ~/.config
 ln -sf $SCRIPTPATH/claude-accounts ~/.config/claude-accounts
 
+# Native LM Studio idle timers for API/JIT, GUI and manual CLI loads.
+if [ -x "$HOME/.lmstudio/bin/lms" ]; then
+  bash "$SCRIPTPATH/lmstudio-policy/install.sh"
+fi
+
 # Codex skills
 mkdir -p ~/.codex/skills
 # Not for Codex: `codex` drives the Codex CLI from Claude. review-claude and review-codex
