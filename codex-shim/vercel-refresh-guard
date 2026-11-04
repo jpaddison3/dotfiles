@@ -12,11 +12,13 @@
 #
 # When it blocks (all of these)
 #   - no VERCEL_TOKEN and no --token/-t: the CLI skips refresh when given a token;
-#   - auth.json is file storage, with a refresh token and a numeric expiresAt;
+#   - auth.json is file storage, with an access token, a refresh token and a numeric
+#     expiresAt. `auto` storage tries the keyring first, so it counts as keyring;
 #   - the access token expires within MARGIN_SECONDS. The CLI checks expiry on every
 #     request, so this leaves room for a command to finish. It's a startup check, so
 #     a command that outlasts the margin (a long `vercel dev`) can still cross expiry.
-#     A missing token counts too, since the CLI refreshes then as well;
+#     With no access token at all it passes through: most commands then start a login
+#     rather than refresh, so "needs refreshing" would be wrong;
 #   - a real write probe in the config folder fails. `test -w` isn't enough: it can
 #     say yes under Seatbelt when a write would be denied. It tests creating a file,
 #     so a sandbox that allows the folder but protects only auth.json goes undetected.
@@ -33,8 +35,9 @@
 # signal, so recheck them after a major CLI upgrade.
 #
 # Install
-#   Symlinked as `vercel` into ~/.local/codex-shim (see newcomputer.bash), which
-#   zshrc.zsh keeps ahead of nvm's node bin on PATH.
+#   Symlinked as `vercel` and `vc`, the CLI's two names for itself, into
+#   ~/.local/codex-shim (see newcomputer.bash), which zshrc.zsh keeps ahead of nvm's
+#   node bin on PATH.
 
 MARGIN_SECONDS=900
 
@@ -107,19 +110,19 @@ config_dir="$(NODE_OPTIONS= VERCEL_GUARD_CONFIG="$global_config" VERCEL_GUARD_MA
   if (storage === undefined) {
     try { storage = readJson(path.join(dir, "config.json")).credStorage; } catch {}
   }
-  if (storage === "keyring") process.exit(1);
+  if (storage === "keyring" || storage === "auto") process.exit(1);
 
   const auth = readJson(path.join(dir, "auth.json"));
+  if (!auth.token) process.exit(1);
   if (typeof auth.refreshToken !== "string" || !auth.refreshToken) process.exit(1);
   if (typeof auth.expiresAt !== "number") process.exit(1);
-  const fresh = auth.expiresAt - Date.now() / 1000 > Number(env.VERCEL_GUARD_MARGIN);
-  if (auth.token && fresh) process.exit(1);
+  if (auth.expiresAt - Date.now() / 1000 > Number(env.VERCEL_GUARD_MARGIN)) process.exit(1);
   process.stdout.write(dir);
 ' 2>/dev/null)" || config_dir=""
 
 # A real folder, or stray output from a node wrapper rather than an answer.
 if [ -d "$config_dir" ]; then
-  if probe="$(mktemp "$config_dir/.vercel-guard-probe.XXXXXX" 2>/dev/null)"; then
+  if probe="$(mktemp "$config_dir/.vercel-guard-probe.XXXXXX" 2>&1)"; then
     rm -f "$probe"
   else
     # Callers match on the CLI's own login messages (such as "Starting login flow")
@@ -127,13 +130,14 @@ if [ -d "$config_dir" ]; then
     cat >&2 <<EOF
 vercel-refresh-guard: the Vercel token needs refreshing, but this process can't write
 to $config_dir, so the refreshed token couldn't be saved.
+The write failed with: $probe
 Stopped before contacting Vercel. This call didn't change the login.
 Rerun the same command outside the sandbox, and let the permissions classifier approve
 it. It shouldn't need a new login. If the token has expired, that run refreshes and
 saves it. If it's within $((MARGIN_SECONDS / 60)) minutes of expiring, that run works without
 refreshing yet. Waiting doesn't help: sandboxed calls stay blocked until a call outside
 the sandbox runs after expiry.
-If this is already outside a sandbox, the folder itself isn't writable: fix its permissions.
+If this is already outside a sandbox, the problem is the folder or its disk: fix that first.
 EOF
     exit 1
   fi

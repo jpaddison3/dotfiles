@@ -100,6 +100,7 @@ ln -sf $SCRIPTPATH/codex-shim/orca-open-guard ~/.local/codex-shim/orca
 ln -sf $SCRIPTPATH/codex-shim/claude-account ~/.local/codex-shim/claude
 # vercel-refresh-guard: stop a sandboxed `vercel` from refreshing a login it can't save.
 ln -sf $SCRIPTPATH/codex-shim/vercel-refresh-guard ~/.local/codex-shim/vercel
+ln -sf $SCRIPTPATH/codex-shim/vercel-refresh-guard ~/.local/codex-shim/vc
 mkdir -p ~/.config
 ln -sf $SCRIPTPATH/claude-accounts ~/.config/claude-accounts
 

@@ -148,7 +148,7 @@ launching. Tests: `tests/test_claude_account.py`.
 
 ## Also in this dir: `vercel-refresh-guard`
 
-A fourth PATH shim, symlinked as `vercel`. Past the access token's expiry, the
+A fourth PATH shim, symlinked as `vercel` and `vc`, the CLI's two names for itself. Past the access token's expiry, the
 Vercel CLI refreshes before its next API request. In an agent sandbox that can't
 write the CLI's config folder, Vercel issues new tokens that the CLI can't save.
 If refresh tokens are single-use, that spends the one on disk, so the next
@@ -158,9 +158,9 @@ The guard exits 1 before any network call, with a message to rerun the same comm
 outside the sandbox, when all of these hold:
 
 - there's no `VERCEL_TOKEN`, `--token` or `-t`;
-- `auth.json` in the CLI's config folder (`--global-config`/`-Q` is honored) has a
-  refresh token and an `expiresAt` less than 15 minutes away or past, and storage
-  isn't set to `keyring`;
+- `auth.json` in the CLI's config folder (`--global-config`/`-Q` is honored) has an
+  access token, a refresh token and an `expiresAt` less than 15 minutes away or past,
+  and storage isn't set to `keyring` or `auto`;
 - a real write probe in that folder fails. `test -w` can say yes under Seatbelt when
   a write would be denied.
 

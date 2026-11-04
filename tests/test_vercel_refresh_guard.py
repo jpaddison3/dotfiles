@@ -74,7 +74,7 @@ class VercelRefreshGuardTest(unittest.TestCase):
         folder.chmod(0o555)
         self.addCleanup(folder.chmod, 0o755)
 
-    def run_guard(self, *args, env=None, path=None, stdin="", prefix=()):
+    def run_guard(self, *args, env=None, path=None, stdin="", prefix=(), direct=False):
         full_env = {
             "HOME": str(self.home),
             "PATH": path or os.pathsep.join(
@@ -83,7 +83,7 @@ class VercelRefreshGuardTest(unittest.TestCase):
             **(env or {}),
         }
         return subprocess.run(
-            [*prefix, str(self.shim_dir / "vercel"), *args],
+            [*prefix, *(() if direct else (str(self.shim_dir / "vercel"),)), *args],
             env=full_env, cwd=self.home, input=stdin,
             capture_output=True, text=True, timeout=30,
         )
@@ -97,6 +97,7 @@ class VercelRefreshGuardTest(unittest.TestCase):
         self.assertIn("Waiting doesn't help", result.stderr)
         self.assertIn("within 15 minutes", result.stderr)
         self.assertIn(str(folder or self.config), result.stderr)
+        self.assertIn("The write failed with:", result.stderr)
         self.assert_no_tokens(result)
 
     def assert_passed_through(self, result, args="whoami"):
@@ -143,17 +144,6 @@ class VercelRefreshGuardTest(unittest.TestCase):
         self.write_auth(auth(expires_in=950))
         self.read_only()
         self.assert_passed_through(self.run_guard("whoami"))
-
-    def test_missing_or_empty_token_with_a_future_expiry_blocks(self):
-        # The CLI refreshes when the access token is absent, whatever expiresAt says.
-        without = json.loads(auth(expires_in=3600))
-        del without["token"]
-        for text in (json.dumps(without), auth(expires_in=3600, token="")):
-            with self.subTest(text=text):
-                self.config.chmod(0o755)
-                self.write_auth(text)
-                self.read_only()
-                self.assert_blocked(self.run_guard("whoami"))
 
     def test_empty_vercel_token_is_no_token(self):
         self.write_auth(auth())
@@ -227,6 +217,8 @@ class VercelRefreshGuardTest(unittest.TestCase):
         del no_expiry["expiresAt"]
         no_refresh = json.loads(auth())
         del no_refresh["refreshToken"]
+        no_token = json.loads(auth())
+        del no_token["token"]
         for text in (
             f'{{"token": "{ACCESS_TOKEN}", not json',
             "[]",
@@ -234,6 +226,8 @@ class VercelRefreshGuardTest(unittest.TestCase):
             "",
             json.dumps(no_expiry),
             json.dumps(no_refresh),
+            json.dumps(no_token),
+            auth(token=""),
             auth(expiresAt="soon"),
             auth(refreshToken=""),
         ):
@@ -261,6 +255,14 @@ class VercelRefreshGuardTest(unittest.TestCase):
         self.write_auth(auth())
         self.read_only()
         result = self.run_guard("whoami", env={"VERCEL_TOKEN_STORAGE": "keyring"})
+        self.assert_passed_through(result)
+
+    def test_auto_storage_passes_through(self):
+        self.write_auth(auth())
+        (self.config / "config.json").write_text('{"credStorage": "auto"}')
+        self.read_only()
+        self.assert_passed_through(self.run_guard("whoami"))
+        result = self.run_guard("whoami", env={"VERCEL_TOKEN_STORAGE": "auto"})
         self.assert_passed_through(result)
 
     def test_no_node_passes_through(self):
@@ -357,6 +359,17 @@ class VercelRefreshGuardTest(unittest.TestCase):
         self.assert_passed_through(self.run_guard("whoami"))
 
     # -- finding the real CLI ----------------------------------------------
+    def test_installed_as_vc_it_guards_and_runs_the_real_cli(self):
+        (self.shim_dir / "vc").symlink_to(SHIM_SRC)
+        vc = str(self.shim_dir / "vc")
+        self.write_auth(auth())
+        self.read_only()
+        self.assert_blocked(self.run_guard("whoami", prefix=(vc,), direct=True))
+        self.config.chmod(0o755)
+        self.write_auth(auth(expires_in=3600))
+        self.read_only()
+        self.assert_passed_through(self.run_guard("whoami", prefix=(vc,), direct=True))
+
     def test_skips_its_own_directory_on_path(self):
         self.write_auth(auth(expires_in=3600))
         path = os.pathsep.join(
