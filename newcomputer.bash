@@ -98,6 +98,8 @@ ln -sf $SCRIPTPATH/codex-shim/orca-open-guard ~/.local/codex-shim/orca
 # claude-account: per-repo Claude account (CLAUDE_CONFIG_DIR) as a `claude` PATH shim, so
 # launchers that skip interactive zsh get the mapping too. Reads ~/.config/claude-accounts.
 ln -sf $SCRIPTPATH/codex-shim/claude-account ~/.local/codex-shim/claude
+# vercel-refresh-guard: stop a sandboxed `vercel` from refreshing a login it can't save.
+ln -sf $SCRIPTPATH/codex-shim/vercel-refresh-guard ~/.local/codex-shim/vercel
 mkdir -p ~/.config
 ln -sf $SCRIPTPATH/claude-accounts ~/.config/claude-accounts
 
