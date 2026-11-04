@@ -13,8 +13,9 @@
 # When it blocks (all of these)
 #   - no VERCEL_TOKEN and no --token/-t: the CLI skips refresh when given a token;
 #   - auth.json is file storage, with an access token, a refresh token and a numeric
-#     expiresAt. Only `file` storage (the default) counts: `auto` tries the keyring
-#     first, and the CLI rejects values it doesn't know with its own error;
+#     expiresAt. Only `file` storage (the default) counts. `auto` tries the keyring
+#     first, so it passes through, which leaves a login that `auto` keeps in auth.json
+#     unprotected. The CLI rejects values it doesn't know with its own error;
 #   - the access token expires within MARGIN_SECONDS. The CLI checks expiry on every
 #     request, so this leaves room for a command to finish. It's a startup check, so
 #     a command that outlasts the margin (a long `vercel dev`) can still cross expiry.

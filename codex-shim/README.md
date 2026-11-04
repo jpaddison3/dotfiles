@@ -178,7 +178,8 @@ request. The guard only checks at startup, so a sandboxed command that outlasts 
 margin, such as a long `vercel dev`, can still cross expiry and lose the login.
 
 Known bypasses: `npx vercel` or a project-local `node_modules/.bin/vercel` can come
-first on PATH, and a library that refreshes the same login itself, such as
+first on PATH, `credStorage: auto` passes through even when the login is in `auth.json`,
+and a library that refreshes the same login itself, such as
 `@vercel/oidc`, never runs `vercel` at all. To skip the guard on purpose, call the real
 binary by its full path.
 
