@@ -94,7 +94,7 @@ config_dir="$(NODE_OPTIONS= VERCEL_GUARD_CONFIG="$global_config" VERCEL_GUARD_MA
   const fs = require("fs"), os = require("os"), path = require("path");
   const env = process.env, home = os.homedir();
   const isDir = (p) => { try { return fs.lstatSync(p).isDirectory(); } catch { return false; } };
-  const readJson = (p) => JSON.parse(fs.readFileSync(p, "utf8").replace(/^﻿/, ""));
+  const readJson = (p) => JSON.parse(fs.readFileSync(p, "utf8").replace(/^\uFEFF/, ""));
 
   let dir;
   if (env.VERCEL_GUARD_CONFIG) {
