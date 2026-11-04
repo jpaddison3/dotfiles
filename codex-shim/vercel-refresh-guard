@@ -1,0 +1,152 @@
+#!/usr/bin/env bash
+# vercel-refresh-guard — PATH shim for `vercel` that stops a refresh that couldn't be saved.
+#
+# Why this exists
+#   A CLI login holds a short-lived access token and a refresh token, both in
+#   auth.json. Past expiry, the CLI refreshes before its next API request. In an
+#   agent sandbox that can't write the CLI's config folder, Vercel issues new tokens
+#   that the CLI then can't save. If refresh tokens are single-use, that spends the one on disk,
+#   so the next unsandboxed call is refused and the CLI deletes auth.json, logging
+#   the user out. This shim stops such a call before it reaches the network, and
+#   otherwise execs the real CLI untouched.
+#
+# When it blocks (all of these)
+#   - no VERCEL_TOKEN and no --token/-t: the CLI skips refresh when given a token;
+#   - auth.json is file storage, with an access token, a refresh token and a numeric
+#     expiresAt. Only `file` storage (the default) counts. `auto` tries the keyring
+#     first, so it passes through, which leaves a login that `auto` keeps in auth.json
+#     unprotected. The CLI rejects values it doesn't know with its own error;
+#   - the access token expires within MARGIN_SECONDS. The CLI checks expiry on every
+#     request, so this leaves room for a command to finish. It's a startup check, so
+#     a command that outlasts the margin (a long `vercel dev`) can still cross expiry.
+#     With no access token at all it passes through: most commands then start a login
+#     rather than refresh, so "needs refreshing" would be wrong;
+#   - a real write probe in the config folder fails. `test -w` isn't enough: it can
+#     say yes under Seatbelt when a write would be denied. It tests creating a file,
+#     so a sandbox that allows the folder but protects only auth.json goes undetected.
+#
+# It blocks every subcommand, including the few that never reach the API (--version),
+# rather than track which ones do. Anything it doesn't understand passes through, so
+# a bug here can't block a deploy.
+# That's also why there's no `set -e` or `set -u`: an aborted guard would be a new
+# failure. It never prints auth.json's contents: node's output is captured or
+# dropped, because a JSON parse error can quote the file.
+#
+# The folder, storage and expiry rules are copied from Vercel CLI 54.9.1. If a later
+# CLI changes them, this passes everything through and stops protecting without any
+# signal, so recheck them after a major CLI upgrade.
+#
+# Install
+#   Symlinked as `vercel` and `vc`, the CLI's two names for itself, into
+#   ~/.local/codex-shim (see newcomputer.bash), which zshrc.zsh keeps ahead of nvm's
+#   node bin on PATH.
+
+MARGIN_SECONDS=900
+
+# Resolve the real vercel, skipping this script's own directory (same trick as
+# codex-mirror, so the symlinked shim never execs itself).
+SELF_REF="${BASH_SOURCE[0]:-$0}"
+SELF_DIR="$(cd "$(dirname "$SELF_REF")" 2>/dev/null && pwd -P || true)"
+SELF_PATH=""
+[ -n "$SELF_DIR" ] && SELF_PATH="$SELF_DIR/$(basename "$SELF_REF")"
+REAL_VERCEL=""
+while IFS= read -r cand; do
+  [ -n "$cand" ] || continue
+  [ -n "$SELF_PATH" ] && [ "$cand" -ef "$SELF_PATH" ] 2>/dev/null && continue
+  cdir="$(cd "$(dirname "$cand")" 2>/dev/null && pwd -P || true)"
+  [ -n "$SELF_DIR" ] && [ "$cdir" = "$SELF_DIR" ] && continue
+  REAL_VERCEL="$cand"; break
+done < <(which -a vercel 2>/dev/null || true)
+if [ -z "$REAL_VERCEL" ]; then
+  echo "$(basename "$SELF_REF"): command not found" >&2
+  exit 127
+fi
+
+[ -n "${VERCEL_TOKEN:-}" ] && exec "$REAL_VERCEL" "$@"
+
+# Read flags the way the CLI's parser (the `arg` package, permissive) does: flags
+# count anywhere up to `--`, the last --global-config wins, a short flag that takes
+# a value may end a cluster (-dt), and a flag's value can't start with `-`.
+global_config=""
+want_config=0
+for arg in "$@"; do
+  if [ "$want_config" = 1 ]; then
+    global_config="$arg"
+    want_config=0
+    continue
+  fi
+  case "$arg" in
+    --) break ;;
+    --token|--token=*) exec "$REAL_VERCEL" "$@" ;;
+    --global-config=*) global_config="${arg#*=}" ;;
+    --global-config) want_config=1 ;;
+    --*) ;;
+    -*t) exec "$REAL_VERCEL" "$@" ;;
+    -*Q) want_config=1 ;;
+  esac
+done
+
+# Prints the config folder when the stored login needs refreshing, and nothing
+# otherwise, including on any error. The folder search mirrors getGlobalPathConfig
+# in @vercel/cli-config, and the storage check mirrors its credStorage lookup.
+# NODE_OPTIONS is cleared so a preload can't add to the captured output.
+config_dir="$(NODE_OPTIONS= VERCEL_GUARD_CONFIG="$global_config" VERCEL_GUARD_MARGIN="$MARGIN_SECONDS" node -e '
+  const fs = require("fs"), os = require("os"), path = require("path");
+  const env = process.env, home = os.homedir();
+  const isDir = (p) => { try { return fs.lstatSync(p).isDirectory(); } catch { return false; } };
+  const readJson = (p) => JSON.parse(fs.readFileSync(p, "utf8").replace(/^\uFEFF/, ""));
+
+  let dir;
+  if (env.VERCEL_GUARD_CONFIG) {
+    dir = path.resolve(env.VERCEL_GUARD_CONFIG);
+  } else {
+    const dataHome = env.XDG_DATA_HOME ||
+      path.join(home, process.platform === "darwin" ? "Library/Application Support" : ".local/share");
+    const dataDirs = [dataHome, ...(env.XDG_DATA_DIRS || "").split(":").filter(Boolean)];
+    const current = dataDirs.map((d) => path.join(d, "com.vercel.cli"));
+    const legacy = [path.join(home, ".now"), ...dataDirs.map((d) => path.join(d, "now"))];
+    dir = [...current, ...legacy].find(isDir) || current[0];
+  }
+
+  let storage = env.VERCEL_TOKEN_STORAGE;
+  if (storage === undefined) {
+    try {
+      storage = readJson(path.join(dir, "config.json")).credStorage;
+    } catch (error) {
+      if (error.code !== "ENOENT") process.exit(1);
+    }
+  }
+  if (storage !== undefined && storage !== "file") process.exit(1);
+
+  const auth = readJson(path.join(dir, "auth.json"));
+  if (typeof auth.token !== "string" || !auth.token) process.exit(1);
+  if (typeof auth.refreshToken !== "string" || !auth.refreshToken) process.exit(1);
+  if (typeof auth.expiresAt !== "number") process.exit(1);
+  if (auth.expiresAt - Date.now() / 1000 > Number(env.VERCEL_GUARD_MARGIN)) process.exit(1);
+  process.stdout.write(dir);
+' 2>/dev/null)" || config_dir=""
+
+# A real folder, or stray output from a node wrapper rather than an answer.
+if [ -d "$config_dir" ]; then
+  if probe="$(mktemp "$config_dir/.vercel-guard-probe.XXXXXX" 2>&1)"; then
+    rm -f "$probe"
+  else
+    # Callers match on the CLI's own login messages (such as "Starting login flow")
+    # to detect a lost login, so don't use that wording here: nothing has been lost.
+    cat >&2 <<EOF
+vercel-refresh-guard: the Vercel token needs refreshing, but this process can't write
+to $config_dir, so the refreshed token couldn't be saved.
+The write failed with: $probe
+Stopped before contacting Vercel. This call didn't change the login.
+Rerun the same command outside the sandbox, and let the permissions classifier approve
+it. It shouldn't need a new login. If the token has expired, that run refreshes and
+saves it. If it's within $((MARGIN_SECONDS / 60)) minutes of expiring, that run works without
+refreshing yet. Waiting doesn't help: sandboxed calls stay blocked until a call outside
+the sandbox runs after expiry.
+If this is already outside a sandbox, the problem is the folder or its disk: fix that first.
+EOF
+    exit 1
+  fi
+fi
+
+exec "$REAL_VERCEL" "$@"
