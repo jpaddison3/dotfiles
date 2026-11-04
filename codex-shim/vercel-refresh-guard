@@ -15,9 +15,11 @@
 #   - auth.json is file storage, with a refresh token and a numeric expiresAt;
 #   - the access token expires within MARGIN_SECONDS. The CLI checks expiry on every
 #     request, so this leaves room for a command to finish. It's a startup check, so
-#     a command that outlasts the margin (a long `vercel dev`) can still cross expiry;
+#     a command that outlasts the margin (a long `vercel dev`) can still cross expiry.
+#     A missing token counts too, since the CLI refreshes then as well;
 #   - a real write probe in the config folder fails. `test -w` isn't enough: it can
-#     say yes under Seatbelt when a write would be denied.
+#     say yes under Seatbelt when a write would be denied. It tests creating a file,
+#     so a sandbox that allows the folder but protects only auth.json goes undetected.
 #
 # It blocks every subcommand, including the few that never reach the API (--version),
 # rather than track which ones do. Anything it doesn't understand passes through, so
@@ -25,6 +27,10 @@
 # That's also why there's no `set -e` or `set -u`: an aborted guard would be a new
 # failure. It never prints auth.json's contents: node's output is captured or
 # dropped, because a JSON parse error can quote the file.
+#
+# The folder, storage and expiry rules are copied from Vercel CLI 54.9.1. If a later
+# CLI changes them, this passes everything through and stops protecting without any
+# signal, so recheck them after a major CLI upgrade.
 #
 # Install
 #   Symlinked as `vercel` into ~/.local/codex-shim (see newcomputer.bash), which
@@ -106,7 +112,8 @@ config_dir="$(NODE_OPTIONS= VERCEL_GUARD_CONFIG="$global_config" VERCEL_GUARD_MA
   const auth = readJson(path.join(dir, "auth.json"));
   if (typeof auth.refreshToken !== "string" || !auth.refreshToken) process.exit(1);
   if (typeof auth.expiresAt !== "number") process.exit(1);
-  if (auth.expiresAt - Date.now() / 1000 > Number(env.VERCEL_GUARD_MARGIN)) process.exit(1);
+  const fresh = auth.expiresAt - Date.now() / 1000 > Number(env.VERCEL_GUARD_MARGIN);
+  if (auth.token && fresh) process.exit(1);
   process.stdout.write(dir);
 ' 2>/dev/null)" || config_dir=""
 
@@ -120,10 +127,13 @@ if [ -d "$config_dir" ]; then
     cat >&2 <<EOF
 vercel-refresh-guard: the Vercel token needs refreshing, but this process can't write
 to $config_dir, so the refreshed token couldn't be saved.
-Stopped before contacting Vercel. The login is unchanged and still works.
+Stopped before contacting Vercel. This call didn't change the login.
 Rerun the same command outside the sandbox, and let the permissions classifier approve
-it. No new login is needed. Once the token has expired, that run refreshes and saves it.
-Until then it just runs, and sandboxed calls stay blocked for up to 15 minutes.
+it. It shouldn't need a new login. If the token has expired, that run refreshes and
+saves it. If it's within $((MARGIN_SECONDS / 60)) minutes of expiring, that run works without
+refreshing yet. Waiting doesn't help: sandboxed calls stay blocked until a call outside
+the sandbox runs after expiry.
+If this is already outside a sandbox, the folder itself isn't writable: fix its permissions.
 EOF
     exit 1
   fi

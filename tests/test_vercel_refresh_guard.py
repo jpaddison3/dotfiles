@@ -94,7 +94,8 @@ class VercelRefreshGuardTest(unittest.TestCase):
         self.assertIn("needs refreshing", result.stderr)
         self.assertIn("Rerun the same command outside the sandbox", result.stderr)
         self.assertIn("permissions classifier", result.stderr)
-        self.assertIn("sandboxed calls stay blocked", result.stderr)
+        self.assertIn("Waiting doesn't help", result.stderr)
+        self.assertIn("within 15 minutes", result.stderr)
         self.assertIn(str(folder or self.config), result.stderr)
         self.assert_no_tokens(result)
 
@@ -134,9 +135,25 @@ class VercelRefreshGuardTest(unittest.TestCase):
             self.assertNotIn(message, result.stderr)
 
     def test_token_inside_the_margin_counts_as_expired(self):
-        self.write_auth(auth(expires_in=600))
+        self.write_auth(auth(expires_in=850))
         self.read_only()
         self.assert_blocked(self.run_guard("whoami"))
+
+    def test_token_just_outside_the_margin_passes_through(self):
+        self.write_auth(auth(expires_in=950))
+        self.read_only()
+        self.assert_passed_through(self.run_guard("whoami"))
+
+    def test_missing_or_empty_token_with_a_future_expiry_blocks(self):
+        # The CLI refreshes when the access token is absent, whatever expiresAt says.
+        without = json.loads(auth(expires_in=3600))
+        del without["token"]
+        for text in (json.dumps(without), auth(expires_in=3600, token="")):
+            with self.subTest(text=text):
+                self.config.chmod(0o755)
+                self.write_auth(text)
+                self.read_only()
+                self.assert_blocked(self.run_guard("whoami"))
 
     def test_empty_vercel_token_is_no_token(self):
         self.write_auth(auth())

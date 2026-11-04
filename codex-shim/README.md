@@ -177,6 +177,11 @@ The margin leaves room for a command to finish, since the CLI checks expiry on e
 request. The guard only checks at startup, so a sandboxed command that outlasts the
 margin, such as a long `vercel dev`, can still cross expiry and lose the login.
 
-`npx vercel` or a project-local `node_modules/.bin/vercel` can come first on PATH and
-bypass the guard. To skip it on purpose, call the real binary by its full path. Tests:
-`tests/test_vercel_refresh_guard.py`.
+Known bypasses: `npx vercel` or a project-local `node_modules/.bin/vercel` can come
+first on PATH, and a library that refreshes the same login itself, such as
+`@vercel/oidc`, never runs `vercel` at all. To skip the guard on purpose, call the real
+binary by its full path.
+
+Tests: `tests/test_vercel_refresh_guard.py`. Run them outside any sandbox at least once
+after changing the probe: the test with a real Seatbelt denial skips itself inside one,
+and the others use `chmod`, which `test -w` also gets right.
