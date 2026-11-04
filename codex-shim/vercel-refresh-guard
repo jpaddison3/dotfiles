@@ -3,9 +3,9 @@
 #
 # Why this exists
 #   A CLI login holds a short-lived access token and a refresh token, both in
-#   auth.json. Past expiry, any `vercel` call refreshes first. In an agent sandbox
-#   that can't write the CLI's config folder, Vercel issues new tokens that the CLI
-#   then can't save. If refresh tokens are single-use, that spends the one on disk,
+#   auth.json. Past expiry, the CLI refreshes before its next API request. In an
+#   agent sandbox that can't write the CLI's config folder, Vercel issues new tokens
+#   that the CLI then can't save. If refresh tokens are single-use, that spends the one on disk,
 #   so the next unsandboxed call is refused and the CLI deletes auth.json, logging
 #   the user out. This shim stops such a call before it reaches the network, and
 #   otherwise execs the real CLI untouched.
@@ -13,12 +13,15 @@
 # When it blocks (all of these)
 #   - no VERCEL_TOKEN and no --token/-t: the CLI skips refresh when given a token;
 #   - auth.json is file storage, with a refresh token and a numeric expiresAt;
-#   - the access token expires within MARGIN_SECONDS, so a command can't cross
-#     expiry mid-run;
+#   - the access token expires within MARGIN_SECONDS. The CLI checks expiry on every
+#     request, so this leaves room for a command to finish. It's a startup check, so
+#     a command that outlasts the margin (a long `vercel dev`) can still cross expiry;
 #   - a real write probe in the config folder fails. `test -w` isn't enough: it can
 #     say yes under Seatbelt when a write would be denied.
 #
-# Anything it doesn't understand passes through, so a bug here can't block a deploy.
+# It blocks every subcommand, including the few that never reach the API (--version),
+# rather than track which ones do. Anything it doesn't understand passes through, so
+# a bug here can't block a deploy.
 # That's also why there's no `set -e` or `set -u`: an aborted guard would be a new
 # failure. It never prints auth.json's contents: node's output is captured or
 # dropped, because a JSON parse error can quote the file.
@@ -27,7 +30,7 @@
 #   Symlinked as `vercel` into ~/.local/codex-shim (see newcomputer.bash), which
 #   zshrc.zsh keeps ahead of nvm's node bin on PATH.
 
-MARGIN_SECONDS=300
+MARGIN_SECONDS=900
 
 # Resolve the real vercel, skipping this script's own directory (same trick as
 # codex-mirror, so the symlinked shim never execs itself).
@@ -75,7 +78,8 @@ done
 # Prints the config folder when the stored login needs refreshing, and nothing
 # otherwise, including on any error. The folder search mirrors getGlobalPathConfig
 # in @vercel/cli-config, and the storage check mirrors its credStorage lookup.
-config_dir="$(VERCEL_GUARD_CONFIG="$global_config" VERCEL_GUARD_MARGIN="$MARGIN_SECONDS" node -e '
+# NODE_OPTIONS is cleared so a preload can't add to the captured output.
+config_dir="$(NODE_OPTIONS= VERCEL_GUARD_CONFIG="$global_config" VERCEL_GUARD_MARGIN="$MARGIN_SECONDS" node -e '
   const fs = require("fs"), os = require("os"), path = require("path");
   const env = process.env, home = os.homedir();
   const isDir = (p) => { try { return fs.lstatSync(p).isDirectory(); } catch { return false; } };
@@ -104,9 +108,10 @@ config_dir="$(VERCEL_GUARD_CONFIG="$global_config" VERCEL_GUARD_MARGIN="$MARGIN_
   if (typeof auth.expiresAt !== "number") process.exit(1);
   if (auth.expiresAt - Date.now() / 1000 > Number(env.VERCEL_GUARD_MARGIN)) process.exit(1);
   process.stdout.write(dir);
-' 2>/dev/null)"
+' 2>/dev/null)" || config_dir=""
 
-if [ -n "$config_dir" ]; then
+# A real folder, or stray output from a node wrapper rather than an answer.
+if [ -d "$config_dir" ]; then
   if probe="$(mktemp "$config_dir/.vercel-guard-probe.XXXXXX" 2>/dev/null)"; then
     rm -f "$probe"
   else
@@ -117,7 +122,8 @@ vercel-refresh-guard: the Vercel token needs refreshing, but this process can't 
 to $config_dir, so the refreshed token couldn't be saved.
 Stopped before contacting Vercel. The login is unchanged and still works.
 Rerun the same command outside the sandbox, and let the permissions classifier approve
-it. It will refresh and save normally. No new login is needed.
+it. No new login is needed. Once the token has expired, that run refreshes and saves it.
+Until then it just runs, and sandboxed calls stay blocked for up to 15 minutes.
 EOF
     exit 1
   fi

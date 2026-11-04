@@ -149,7 +149,7 @@ launching. Tests: `tests/test_claude_account.py`.
 ## Also in this dir: `vercel-refresh-guard`
 
 A fourth PATH shim, symlinked as `vercel`. Past the access token's expiry, the
-Vercel CLI refreshes before doing anything else. In an agent sandbox that can't
+Vercel CLI refreshes before its next API request. In an agent sandbox that can't
 write the CLI's config folder, Vercel issues new tokens that the CLI can't save.
 If refresh tokens are single-use, that spends the one on disk, so the next
 unsandboxed call is refused and the CLI deletes `auth.json`, logging you out.
@@ -159,7 +159,7 @@ outside the sandbox, when all of these hold:
 
 - there's no `VERCEL_TOKEN`, `--token` or `-t`;
 - `auth.json` in the CLI's config folder (`--global-config`/`-Q` is honored) has a
-  refresh token and an `expiresAt` less than 5 minutes away or past, and storage
+  refresh token and an `expiresAt` less than 15 minutes away or past, and storage
   isn't set to `keyring`;
 - a real write probe in that folder fails. `test -w` can say yes under Seatbelt when
   a write would be denied.
@@ -169,9 +169,13 @@ unreadable `auth.json`, so a guard bug can't block a deploy. Outside a sandbox t
 probe succeeds, so the CLI refreshes and saves as usual. The probe runs only once the
 token is expiring, so a call with a valid token costs one quick `node` start.
 
-Within the 5-minute margin, a rerun outside the sandbox works but doesn't refresh yet,
-because the CLI only refreshes past expiry. Sandboxed calls stay blocked until a call
-outside the sandbox runs after expiry.
+Within the 15-minute margin, a rerun outside the sandbox works but doesn't refresh
+yet, because the CLI only refreshes past expiry. Sandboxed calls stay blocked until a
+call outside the sandbox runs after expiry.
+
+The margin leaves room for a command to finish, since the CLI checks expiry on every
+request. The guard only checks at startup, so a sandboxed command that outlasts the
+margin, such as a long `vercel dev`, can still cross expiry and lose the login.
 
 `npx vercel` or a project-local `node_modules/.bin/vercel` can come first on PATH and
 bypass the guard. To skip it on purpose, call the real binary by its full path. Tests:

@@ -94,6 +94,7 @@ class VercelRefreshGuardTest(unittest.TestCase):
         self.assertIn("needs refreshing", result.stderr)
         self.assertIn("Rerun the same command outside the sandbox", result.stderr)
         self.assertIn("permissions classifier", result.stderr)
+        self.assertIn("sandboxed calls stay blocked", result.stderr)
         self.assertIn(str(folder or self.config), result.stderr)
         self.assert_no_tokens(result)
 
@@ -133,7 +134,7 @@ class VercelRefreshGuardTest(unittest.TestCase):
             self.assertNotIn(message, result.stderr)
 
     def test_token_inside_the_margin_counts_as_expired(self):
-        self.write_auth(auth(expires_in=120))
+        self.write_auth(auth(expires_in=600))
         self.read_only()
         self.assert_blocked(self.run_guard("whoami"))
 
@@ -252,6 +253,37 @@ class VercelRefreshGuardTest(unittest.TestCase):
         if shutil.which("node", path=path):
             self.skipTest("node is on the system PATH here")
         self.assert_passed_through(self.run_guard("whoami", path=path))
+
+    def test_stray_node_output_passes_through(self):
+        # A version-manager wrapper that prints and fails isn't an answer.
+        self.write_auth(auth(expires_in=3600))
+        self.read_only()
+        wrapper = self.node_dir / "node"
+        wrapper.unlink()
+        wrapper.write_text("#!/bin/sh\necho 'wrapper says hello'\nexit 1\n")
+        wrapper.chmod(0o755)
+        self.assert_passed_through(self.run_guard("whoami"))
+
+    def test_stray_node_output_with_exit_zero_passes_through(self):
+        self.write_auth(auth(expires_in=3600))
+        self.read_only()
+        wrapper = self.node_dir / "node"
+        wrapper.unlink()
+        wrapper.write_text("#!/bin/sh\necho 'wrapper says hello'\n")
+        wrapper.chmod(0o755)
+        self.assert_passed_through(self.run_guard("whoami"))
+
+    def test_node_options_preload_cant_change_the_answer(self):
+        preload = self.tmp / "preload.js"
+        preload.write_text('console.log("preload says hello");')
+        env = {"NODE_OPTIONS": f"--require {preload}"}
+        self.write_auth(auth(expires_in=3600))
+        self.read_only()
+        self.assert_passed_through(self.run_guard("whoami", env=env))
+        self.config.chmod(0o755)
+        self.write_auth(auth())
+        self.read_only()
+        self.assert_blocked(self.run_guard("whoami", env=env))
 
     # -- which config folder -----------------------------------------------
     def test_global_config_flag_forms_choose_the_folder_to_check(self):
