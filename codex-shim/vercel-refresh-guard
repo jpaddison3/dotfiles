@@ -13,7 +13,8 @@
 # When it blocks (all of these)
 #   - no VERCEL_TOKEN and no --token/-t: the CLI skips refresh when given a token;
 #   - auth.json is file storage, with an access token, a refresh token and a numeric
-#     expiresAt. `auto` storage tries the keyring first, so it counts as keyring;
+#     expiresAt. Only `file` storage (the default) counts: `auto` tries the keyring
+#     first, and the CLI rejects values it doesn't know with its own error;
 #   - the access token expires within MARGIN_SECONDS. The CLI checks expiry on every
 #     request, so this leaves room for a command to finish. It's a startup check, so
 #     a command that outlasts the margin (a long `vercel dev`) can still cross expiry.
@@ -56,7 +57,7 @@ while IFS= read -r cand; do
   REAL_VERCEL="$cand"; break
 done < <(which -a vercel 2>/dev/null || true)
 if [ -z "$REAL_VERCEL" ]; then
-  echo "vercel: command not found" >&2
+  echo "$(basename "$SELF_REF"): command not found" >&2
   exit 127
 fi
 
@@ -108,12 +109,16 @@ config_dir="$(NODE_OPTIONS= VERCEL_GUARD_CONFIG="$global_config" VERCEL_GUARD_MA
 
   let storage = env.VERCEL_TOKEN_STORAGE;
   if (storage === undefined) {
-    try { storage = readJson(path.join(dir, "config.json")).credStorage; } catch {}
+    try {
+      storage = readJson(path.join(dir, "config.json")).credStorage;
+    } catch (error) {
+      if (error.code !== "ENOENT") process.exit(1);
+    }
   }
-  if (storage === "keyring" || storage === "auto") process.exit(1);
+  if (storage !== undefined && storage !== "file") process.exit(1);
 
   const auth = readJson(path.join(dir, "auth.json"));
-  if (!auth.token) process.exit(1);
+  if (typeof auth.token !== "string" || !auth.token) process.exit(1);
   if (typeof auth.refreshToken !== "string" || !auth.refreshToken) process.exit(1);
   if (typeof auth.expiresAt !== "number") process.exit(1);
   if (auth.expiresAt - Date.now() / 1000 > Number(env.VERCEL_GUARD_MARGIN)) process.exit(1);

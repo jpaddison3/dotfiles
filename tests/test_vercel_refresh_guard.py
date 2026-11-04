@@ -22,8 +22,8 @@ exit 7
 ACCESS_TOKEN = "access-token-do-not-print"
 REFRESH_TOKEN = "refresh-token-do-not-print"
 
-# verify-deployed-style callers read these as "the login is gone", so a block must
-# not say them.
+# Callers that match on these read them as the login being gone, so a block must not
+# say them.
 CLI_LOGIN_MESSAGES = (
     "No existing credentials found",
     "Starting login flow",
@@ -74,7 +74,7 @@ class VercelRefreshGuardTest(unittest.TestCase):
         folder.chmod(0o555)
         self.addCleanup(folder.chmod, 0o755)
 
-    def run_guard(self, *args, env=None, path=None, stdin="", prefix=(), direct=False):
+    def run_guard(self, *args, env=None, path=None, stdin="", prefix=(), name="vercel"):
         full_env = {
             "HOME": str(self.home),
             "PATH": path or os.pathsep.join(
@@ -83,7 +83,7 @@ class VercelRefreshGuardTest(unittest.TestCase):
             **(env or {}),
         }
         return subprocess.run(
-            [*prefix, *(() if direct else (str(self.shim_dir / "vercel"),)), *args],
+            [*prefix, str(self.shim_dir / name), *args],
             env=full_env, cwd=self.home, input=stdin,
             capture_output=True, text=True, timeout=30,
         )
@@ -228,6 +228,7 @@ class VercelRefreshGuardTest(unittest.TestCase):
             json.dumps(no_refresh),
             json.dumps(no_token),
             auth(token=""),
+            auth(token=123),
             auth(expiresAt="soon"),
             auth(refreshToken=""),
         ):
@@ -264,6 +265,35 @@ class VercelRefreshGuardTest(unittest.TestCase):
         self.assert_passed_through(self.run_guard("whoami"))
         result = self.run_guard("whoami", env={"VERCEL_TOKEN_STORAGE": "auto"})
         self.assert_passed_through(result)
+
+    def test_unknown_storage_values_pass_through(self):
+        self.write_auth(auth())
+        self.read_only()
+        result = self.run_guard("whoami", env={"VERCEL_TOKEN_STORAGE": "future-store"})
+        self.assert_passed_through(result)
+        for text in ('{"credStorage": "future-store"}', "{not json"):
+            with self.subTest(text=text):
+                self.config.chmod(0o755)
+                (self.config / "config.json").write_text(text)
+                self.read_only()
+                self.assert_passed_through(self.run_guard("whoami"))
+
+    def test_storage_set_to_file_in_the_environment_beats_config_json(self):
+        self.write_auth(auth())
+        (self.config / "config.json").write_text('{"credStorage": "keyring"}')
+        self.read_only()
+        self.assert_blocked(self.run_guard("whoami", env={"VERCEL_TOKEN_STORAGE": "file"}))
+
+    def test_storage_set_to_file_in_config_json_blocks(self):
+        self.write_auth(auth())
+        (self.config / "config.json").write_text('{"credStorage": "file"}')
+        self.read_only()
+        self.assert_blocked(self.run_guard("whoami"))
+
+    def test_auth_json_with_a_byte_order_mark_is_read(self):
+        self.write_auth("\ufeff" + auth())
+        self.read_only()
+        self.assert_blocked(self.run_guard("whoami"))
 
     def test_no_node_passes_through(self):
         self.write_auth(auth())
@@ -344,6 +374,21 @@ class VercelRefreshGuardTest(unittest.TestCase):
         result = self.run_guard("whoami", env={"XDG_DATA_HOME": str(self.tmp / "xdg")})
         self.assert_blocked(result, folder=folder)
 
+    def test_xdg_data_dirs_are_searched(self):
+        self.config.rmdir()
+        folder = self.tmp / "shared" / "com.vercel.cli"
+        self.write_auth(auth(), folder=folder)
+        self.read_only(folder)
+        env = {"XDG_DATA_DIRS": f"{self.tmp / 'missing'}:{self.tmp / 'shared'}"}
+        self.assert_blocked(self.run_guard("whoami", env=env), folder=folder)
+
+    def test_legacy_xdg_now_folder_is_used_last(self):
+        self.config.rmdir()
+        folder = self.home / "Library" / "Application Support" / "now"
+        self.write_auth(auth(), folder=folder)
+        self.read_only(folder)
+        self.assert_blocked(self.run_guard("whoami"), folder=folder)
+
     def test_legacy_now_folder_is_used_when_the_current_one_is_absent(self):
         self.config.rmdir()
         folder = self.home / ".now"
@@ -361,14 +406,13 @@ class VercelRefreshGuardTest(unittest.TestCase):
     # -- finding the real CLI ----------------------------------------------
     def test_installed_as_vc_it_guards_and_runs_the_real_cli(self):
         (self.shim_dir / "vc").symlink_to(SHIM_SRC)
-        vc = str(self.shim_dir / "vc")
         self.write_auth(auth())
         self.read_only()
-        self.assert_blocked(self.run_guard("whoami", prefix=(vc,), direct=True))
+        self.assert_blocked(self.run_guard("whoami", name="vc"))
         self.config.chmod(0o755)
         self.write_auth(auth(expires_in=3600))
         self.read_only()
-        self.assert_passed_through(self.run_guard("whoami", prefix=(vc,), direct=True))
+        self.assert_passed_through(self.run_guard("whoami", name="vc"))
 
     def test_skips_its_own_directory_on_path(self):
         self.write_auth(auth(expires_in=3600))
@@ -383,6 +427,13 @@ class VercelRefreshGuardTest(unittest.TestCase):
         result = self.run_guard("whoami")
         self.assertEqual(result.returncode, 127)
         self.assertEqual(result.stderr, "vercel: command not found\n")
+
+    def test_nothing_behind_the_shim_names_the_command_as_typed(self):
+        (self.bin_dir / "vercel").unlink()
+        (self.shim_dir / "vc").symlink_to(SHIM_SRC)
+        result = self.run_guard("whoami", name="vc")
+        self.assertEqual(result.returncode, 127)
+        self.assertEqual(result.stderr, "vc: command not found\n")
 
 
 if __name__ == "__main__":

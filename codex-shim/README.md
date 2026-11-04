@@ -160,7 +160,7 @@ outside the sandbox, when all of these hold:
 - there's no `VERCEL_TOKEN`, `--token` or `-t`;
 - `auth.json` in the CLI's config folder (`--global-config`/`-Q` is honored) has an
   access token, a refresh token and an `expiresAt` less than 15 minutes away or past,
-  and storage isn't set to `keyring` or `auto`;
+  and storage is `file`, the default;
 - a real write probe in that folder fails. `test -w` can say yes under Seatbelt when
   a write would be denied.
 
