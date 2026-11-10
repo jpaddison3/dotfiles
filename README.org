@@ -34,3 +34,17 @@ The scripts call the separately installed ~inbox-triage-launch~ backend once
 per invocation. Install that backend first in the 80k-coding-tools checkout
 with ~make install-inbox-triage~. The auto command delegates local-time mode
 selection to the backend; the BOD and EOD commands pass their explicit modes.
+
+** SSH only over Tailscale
+
+Run ~make install-pf-ssh~ to let SSH in only from this Mac and from Tailscale
+(~100.64.0.0/10~ and ~fd7a:115c:a1e0::/48~); connections to port 22 from any
+other network are dropped. It uses pf rather than the Application Firewall in
+System Settings, which filters by app, not by source address, and always lets
+the built-in ~sshd~ through. The rules live in ~pf-ssh.rules~, loaded into the
+pf anchor ~com.apple/150.jpaddison-ssh~ at boot by a root LaunchDaemon, so
+~/etc/pf.conf~ stays stock. Nothing besides port 22 is affected.
+
+Check: ~sudo pfctl -a com.apple/150.jpaddison-ssh -sr~. Turn off until the next
+boot: ~sudo pfctl -a com.apple/150.jpaddison-ssh -F rules~. Remove for good with
+the undo steps at the top of ~install-pf-ssh.sh~.
