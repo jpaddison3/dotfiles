@@ -65,6 +65,7 @@ ln -sf $SCRIPTPATH/root-claude-md.md ~/.claude/CLAUDE.md
 # bb-wide agent instructions, appended to every bb thread for all providers
 mkdir -p ~/.bb
 ln -sf $SCRIPTPATH/bb-agents.md ~/.bb/AGENTS.md
+bash "$SCRIPTPATH/install-bb-chrome.sh"
 # Every skill in claude-skills/ is installed for Claude (-n so a re-run replaces the
 # link instead of creating one inside the linked directory)
 for skill in $SCRIPTPATH/claude-skills/*/; do
