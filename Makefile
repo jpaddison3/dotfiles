@@ -7,7 +7,7 @@ check:
 	@source "$(HOME)/venvs/py3/bin/activate" && python3 -m unittest discover -s tests -p 'test_*.py'
 
 install-bb-chrome:
-	@bash ./install-bb-chrome.sh
+	@./install-bb-chrome.sh
 
 install-inbox-triage-raycast:
 	@./install-inbox-triage-raycast.sh

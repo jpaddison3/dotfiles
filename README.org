@@ -14,8 +14,10 @@ Clone to ~~/personal-coding/dotfiles~, not anywhere under ~~/Documents~: macOS p
 
 Run ~make install-bb-chrome~ from a permanent checkout on a Mac that is
 already set up. ~newcomputer.bash~ runs the same installer on new machines.
-The installer links one skill at ~~/.bb/skills/bb-chrome~. Start a fresh BB
-Codex thread and ask it to check something in an existing Chrome tab.
+The installer links one skill at ~~/.bb/skills/bb-chrome~. If you move the
+checkout, rerun the installer from its new location to update the link.
+Start a fresh BB Codex thread and ask it to check something in an existing
+Chrome tab.
 
 Use the ChatGPT extension in the Chrome profile with the tab you want to
 check. The skill can delegate to the Chrome integration bundled with
