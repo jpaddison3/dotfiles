@@ -31,7 +31,14 @@ class InstallBBChromeTests(unittest.TestCase):
         )
 
     def test_install_and_repeat_install(self):
-        result = self.install()
+        shutil.copy2(ROOT / "Makefile", self.checkout)
+        result = subprocess.run(
+            ["make", "install-bb-chrome"],
+            cwd=self.checkout,
+            env={**os.environ, "HOME": str(self.home)},
+            capture_output=True,
+            text=True,
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.destination.readlink(), self.source.resolve())
         original_inode = self.destination.lstat().st_ino
@@ -140,6 +147,35 @@ class InstallBBChromeTests(unittest.TestCase):
         result = self.install(temporary_checkout)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("permanent dotfiles checkout", result.stderr)
+        self.assertFalse(self.destination.is_symlink())
+
+    def test_checkout_in_agent_scratch_is_rejected(self):
+        scratch_checkout = self.home / ".cache/agent-tmp/dotfiles"
+        scratch_checkout.parent.mkdir(parents=True)
+        self.checkout.rename(scratch_checkout)
+
+        result = self.install(scratch_checkout)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("permanent dotfiles checkout", result.stderr)
+        self.assertFalse(self.destination.is_symlink())
+
+    def test_git_linked_worktree_is_rejected(self):
+        git = [
+            "git", "-C", str(self.checkout),
+            "-c", "user.name=Installer Test",
+            "-c", "user.email=installer-test@example.com",
+            "-c", "commit.gpgSign=false",
+            "-c", "core.hooksPath=/dev/null",
+        ]
+        subprocess.run([*git, "init", "--quiet"], check=True)
+        subprocess.run([*git, "add", "."], check=True)
+        subprocess.run([*git, "commit", "--quiet", "-m", "Test checkout"], check=True)
+        worktree = self.home / "linked worktree"
+        subprocess.run([*git, "worktree", "add", "--detach", "--quiet", worktree], check=True)
+
+        result = self.install(worktree)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("main dotfiles checkout", result.stderr)
         self.assertFalse(self.destination.is_symlink())
 
 

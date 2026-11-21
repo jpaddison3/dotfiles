@@ -21,7 +21,7 @@ For an explicit tab mention, follow the vendor's exact-tab matching instructions
 
 Let the extension handle tab and site access. If it denies access, surface the denial without retrying through another client. Keep the user's requested Chrome session and respect any instruction to avoid native Computer Use. Another browser, native app control, and a fresh browser profile cannot substitute for the requested session.
 
-If blocked, report the observed Chrome-specific blocker and the corresponding setup step:
+If blocked, use the guidance below for the observed Chrome-specific blocker in BB:
 
 - **App bundle missing, incomplete, or lacking Chrome selection.** Install or update the ChatGPT desktop app.
 - **Browser tooling unavailable.** Follow the bundled instructions to discover `node_repl js`. If it's still unavailable, explain that this BB session lacks the tooling to connect to the Chrome extension and suggest a fresh local BB Codex thread.
