@@ -74,6 +74,25 @@ class InstallBBChromeTests(unittest.TestCase):
         self.assertIn("already exists", result.stderr)
         self.assertEqual(self.destination.readlink(), custom_target)
 
+    def test_live_link_with_installer_target_shape_is_preserved(self):
+        self.destination.parent.mkdir(parents=True)
+        custom_target = self.home / "custom-config/bb-skills/bb-chrome"
+        custom_target.mkdir(parents=True)
+        (custom_target / "SKILL.md").write_text("User skill")
+        self.destination.symlink_to(custom_target)
+
+        result = self.install()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("already exists", result.stderr)
+        self.assertEqual(self.destination.readlink(), custom_target)
+
+    def test_missing_source_directory_reports_missing_skill(self):
+        self.source.rename(self.checkout / "moved-skill")
+        result = self.install()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Missing BB Chrome skill", result.stderr)
+        self.assertFalse(self.destination.is_symlink())
+
     def test_temporary_bb_checkout_is_rejected(self):
         temporary_checkout = self.home / (
             ".bb/plugins/environment-git-worktree/host-data/worktrees/test/dotfiles"

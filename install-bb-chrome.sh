@@ -1,10 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-skill="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/bb-skills/bb-chrome" && pwd -P)"
+checkout="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+skill="$checkout/bb-skills/bb-chrome"
 destination="$HOME/.bb/skills/bb-chrome"
 
-case "$skill" in
+case "$checkout" in
   */plugins/environment-git-worktree/host-data/worktrees/*)
     echo "Run the installer from a permanent dotfiles checkout so BB can keep using the skill." >&2
     exit 1 ;;
@@ -15,14 +16,15 @@ if [[ ! -f "$skill/SKILL.md" ]]; then
   exit 1
 fi
 
-if [[ -L "$destination" ]]; then
-  case "$(readlink "$destination")" in
-    "$skill") exit 0 ;;
-    # Recognize this installer's links even if the previous checkout is gone.
-    /*/bb-skills/bb-chrome)
-      ln -sfn "$skill" "$destination"
-      exit 0 ;;
-  esac
+if [[ -L "$destination" && "$destination" -ef "$skill" ]]; then
+  exit 0
+fi
+
+# Repair a dangling link with the target shape created by this installer.
+if [[ -L "$destination" && ! -e "$destination" &&
+      "$(readlink "$destination")" == /*/bb-skills/bb-chrome ]]; then
+  ln -sfn "$skill" "$destination"
+  exit 0
 fi
 
 if [[ -e "$destination" || -L "$destination" ]]; then
