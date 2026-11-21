@@ -84,6 +84,15 @@ class InstallBBChromeTests(unittest.TestCase):
         self.assertIn("already exists", result.stderr)
         self.assertEqual(self.destination.readlink(), custom_target)
 
+    def test_unrelated_absolute_dangling_link_is_preserved(self):
+        self.destination.parent.mkdir(parents=True)
+        custom_target = self.home / "custom-skills/bb-chrome"
+        self.destination.symlink_to(custom_target)
+
+        result = self.install()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.destination.readlink(), custom_target)
+
     def test_live_link_with_installer_target_shape_is_preserved(self):
         self.destination.parent.mkdir(parents=True)
         custom_target = self.home / "custom-config/bb-skills/bb-chrome"
@@ -95,6 +104,24 @@ class InstallBBChromeTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("already exists", result.stderr)
         self.assertEqual(self.destination.readlink(), custom_target)
+
+    @unittest.skipIf(os.geteuid() == 0, "root can traverse a mode 000 directory")
+    def test_inaccessible_link_target_is_preserved(self):
+        self.destination.parent.mkdir(parents=True)
+        old_checkout = self.home / "old checkout"
+        old_skill = old_checkout / "bb-skills/bb-chrome"
+        old_skill.mkdir(parents=True)
+        self.destination.symlink_to(old_skill)
+
+        old_checkout.chmod(0o000)
+        try:
+            result = self.install()
+        finally:
+            old_checkout.chmod(0o755)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("already exists", result.stderr)
+        self.assertEqual(self.destination.readlink(), old_skill)
 
     def test_missing_source_directory_reports_missing_skill(self):
         self.source.rename(self.checkout / "moved-skill")

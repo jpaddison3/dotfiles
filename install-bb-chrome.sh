@@ -20,10 +20,11 @@ if [[ -L "$destination" && "$destination" -ef "$skill" ]]; then
   exit 0
 fi
 
-# Repair a dangling link with the target shape created by this installer.
+# Repair a link with the installer's target shape only when stat returns ENOENT.
 if [[ -L "$destination" && ! -e "$destination" ]]; then
   previous_target="$(readlink "$destination")"
-  if [[ "$previous_target" == /*/bb-skills/bb-chrome ]]; then
+  if [[ "$previous_target" == /*/bb-skills/bb-chrome ]] &&
+      /usr/bin/perl -MErrno=ENOENT -e 'exit((!stat($ARGV[0]) && $! == ENOENT) ? 0 : 1)' -- "$previous_target"; then
     ln -sfn "$skill" "$destination"
     printf 'Updated dangling BB Chrome skill link from %s to %s\n' "$previous_target" "$skill"
     exit 0

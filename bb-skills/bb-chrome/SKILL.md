@@ -15,7 +15,7 @@ If the session has no usable Chrome integration, or it reports “The browser ac
 /Applications/ChatGPT.app/Contents/Resources/plugins/openai-bundled/plugins/chrome/
 ```
 
-If ChatGPT is installed in `~/Applications`, use the corresponding path there. Follow the official bootstrap, importing `scripts/browser-client.mjs` by absolute path from the same bundle in the Codex Node tool. For the vendor's availability rule, `bb-chrome` counts as the listed Chrome skill in BB Codex. Chrome still needs to connect successfully through the extension.
+If ChatGPT is installed in `~/Applications`, use the corresponding path there. If the layout has changed, look under the app's bundled plugins directory for the OpenAI skill that documents Chrome family selection and its matching client. Follow that skill's bootstrap and import its client by absolute path from the same bundle in the Codex Node tool. For the vendor's availability rule, `bb-chrome` counts as the listed Chrome skill in BB Codex. Chrome still needs to connect successfully through the extension.
 
 For an explicit tab mention, follow the vendor's exact-tab matching instructions. For a plain Chrome request, use the selected skill's documented Chrome family selector. Read the selected browser's documentation before interacting with a tab. To use an already open tab, match it in the extension's open-tab list and claim it through the documented API.
 
