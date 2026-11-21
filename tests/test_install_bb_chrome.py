@@ -54,6 +54,15 @@ class InstallBBChromeTests(unittest.TestCase):
             self.destination.resolve(), moved_checkout.resolve() / "bb-skills/bb-chrome"
         )
 
+    def test_relative_link_to_current_skill_is_a_noop(self):
+        self.destination.parent.mkdir(parents=True)
+        relative_target = Path(os.path.relpath(self.source, self.destination.parent))
+        self.destination.symlink_to(relative_target)
+
+        result = self.install()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.destination.readlink(), relative_target)
+
     def test_existing_skill_directory_is_preserved(self):
         self.destination.mkdir(parents=True)
         original = self.destination / "SKILL.md"
