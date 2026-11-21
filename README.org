@@ -15,6 +15,8 @@ Clone to ~~/personal-coding/dotfiles~, not anywhere under ~~/Documents~: macOS p
 Run ~make install-bb-chrome~ from the permanent dotfiles clone on a Mac that
 is already set up. The skill link depends on the checkout staying in place,
 so the installer rejects linked worktrees and known scratch checkouts.
+Keep the clone outside Documents, Desktop, and Downloads so macOS permits
+BB to read the skill.
 ~newcomputer.bash~ runs the same installer on new machines.
 The installer links one skill at ~~/.bb/skills/bb-chrome~. If you move the
 checkout, rerun the installer from its new location to update the link.

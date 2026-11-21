@@ -14,6 +14,8 @@ class InstallBBChromeTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory(prefix="bb chrome ")
         self.addCleanup(temporary.cleanup)
         self.home = Path(temporary.name)
+        self.env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+        self.env["HOME"] = str(self.home)
         self.checkout = self.home / "dotfiles"
         self.source = self.checkout / "bb-skills/bb-chrome"
         self.destination = self.home / ".bb/skills/bb-chrome"
@@ -21,11 +23,11 @@ class InstallBBChromeTests(unittest.TestCase):
         shutil.copy2(ROOT / "install-bb-chrome.sh", self.checkout)
         shutil.copy2(ROOT / "bb-skills/bb-chrome/SKILL.md", self.source)
 
-    def install(self, checkout=None):
+    def install(self, checkout=None, **env_overrides):
         return subprocess.run(
             [str((checkout or self.checkout) / "install-bb-chrome.sh")],
             cwd=self.home,
-            env={**os.environ, "HOME": str(self.home)},
+            env={**self.env, **env_overrides},
             capture_output=True,
             text=True,
         )
@@ -35,7 +37,7 @@ class InstallBBChromeTests(unittest.TestCase):
         result = subprocess.run(
             ["make", "install-bb-chrome"],
             cwd=self.checkout,
-            env={**os.environ, "HOME": str(self.home)},
+            env=self.env,
             capture_output=True,
             text=True,
         )
@@ -159,6 +161,20 @@ class InstallBBChromeTests(unittest.TestCase):
         self.assertIn("permanent dotfiles checkout", result.stderr)
         self.assertFalse(self.destination.is_symlink())
 
+    def test_checkout_in_macos_privacy_folder_is_rejected(self):
+        for folder in ("Documents", "Desktop", "Downloads"):
+            with self.subTest(folder=folder):
+                blocked_checkout = self.home / folder / "dotfiles"
+                blocked_checkout.parent.mkdir()
+                self.checkout.rename(blocked_checkout)
+                try:
+                    result = self.install(blocked_checkout)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("outside Documents, Desktop, and Downloads", result.stderr)
+                    self.assertFalse(self.destination.is_symlink())
+                finally:
+                    blocked_checkout.rename(self.checkout)
+
     def test_git_linked_worktree_is_rejected(self):
         git = [
             "git", "-C", str(self.checkout),
@@ -167,16 +183,18 @@ class InstallBBChromeTests(unittest.TestCase):
             "-c", "commit.gpgSign=false",
             "-c", "core.hooksPath=/dev/null",
         ]
-        subprocess.run([*git, "init", "--quiet"], check=True)
-        subprocess.run([*git, "add", "."], check=True)
-        subprocess.run([*git, "commit", "--quiet", "-m", "Test checkout"], check=True)
+        subprocess.run([*git, "init", "--quiet"], env=self.env, check=True)
+        subprocess.run([*git, "add", "."], env=self.env, check=True)
+        subprocess.run([*git, "commit", "--quiet", "-m", "Test checkout"], env=self.env, check=True)
         worktree = self.home / "linked worktree"
-        subprocess.run([*git, "worktree", "add", "--detach", "--quiet", worktree], check=True)
+        subprocess.run([*git, "worktree", "add", "--detach", "--quiet", worktree], env=self.env, check=True)
 
-        result = self.install(worktree)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("main dotfiles checkout", result.stderr)
-        self.assertFalse(self.destination.is_symlink())
+        for overrides in ({}, {"GIT_DIR": str(self.checkout / ".git"), "GIT_WORK_TREE": str(self.checkout)}):
+            with self.subTest(overrides=overrides):
+                result = self.install(worktree, **overrides)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("main dotfiles checkout", result.stderr)
+                self.assertFalse(self.destination.is_symlink())
 
 
 if __name__ == "__main__":
