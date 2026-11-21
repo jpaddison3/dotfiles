@@ -21,10 +21,13 @@ if [[ -L "$destination" && "$destination" -ef "$skill" ]]; then
 fi
 
 # Repair a dangling link with the target shape created by this installer.
-if [[ -L "$destination" && ! -e "$destination" &&
-      "$(readlink "$destination")" == /*/bb-skills/bb-chrome ]]; then
-  ln -sfn "$skill" "$destination"
-  exit 0
+if [[ -L "$destination" && ! -e "$destination" ]]; then
+  previous_target="$(readlink "$destination")"
+  if [[ "$previous_target" == /*/bb-skills/bb-chrome ]]; then
+    ln -sfn "$skill" "$destination"
+    printf 'Updated dangling BB Chrome skill link from %s to %s\n' "$previous_target" "$skill"
+    exit 0
+  fi
 fi
 
 if [[ -e "$destination" || -L "$destination" ]]; then

@@ -1,21 +1,21 @@
 ---
 name: bb-chrome
-description: In BB Codex, use the ChatGPT browser extension when asked to use Google Chrome or inspect an existing Chrome tab or signed-in Chrome session.
+description: BB Codex only. Use the ChatGPT browser extension when asked to use Google Chrome or inspect an existing Chrome tab or signed-in Chrome session.
 ---
 
 # Chrome in BB Codex
 
-Use this skill only in Codex threads in BB. For webpage tasks in the user's Chrome session, select extension-backed Chrome explicitly. Start with OpenAI's `control-chrome` skill or the OpenAI Browser skill that documents the ChatGPT extension. Treat a session with only BB Browser Automation as missing the Chrome extension skill. If native Computer Use has already reported that Chrome was not approved, continue with the extension path.
+In other BB providers, follow that provider's browser instructions. In BB Codex, select extension-backed Chrome explicitly for webpage tasks in the user's Chrome session. Start with OpenAI's `control-chrome` skill or the OpenAI Browser skill that documents the ChatGPT extension. Check that the browser client specified in its bootstrap exists before using it. Treat a session with only BB Browser Automation as missing the Chrome extension skill. If native Computer Use has already reported that Chrome was not approved, continue with the extension path.
 
-If that skill is missing or the session reports “The browser access host is unavailable,” read the complete `skills/control-chrome/SKILL.md` from the installed ChatGPT app bundle:
+If the OpenAI skill or its browser client file is missing, or the session reports “The browser access host is unavailable,” read the complete `skills/control-chrome/SKILL.md` from the installed ChatGPT app bundle:
 
 ```text
 /Applications/ChatGPT.app/Contents/Resources/plugins/openai-bundled/plugins/chrome/
 ```
 
-If ChatGPT is installed in `~/Applications`, use the corresponding path there. Follow the official bootstrap, importing `scripts/browser-client.mjs` by absolute path from the same bundle in the Codex Node tool. This BB skill supplies the Chrome instructions when the official skill is absent from the session.
+If ChatGPT is installed in `~/Applications`, use the corresponding path there. Follow the official bootstrap, importing `scripts/browser-client.mjs` by absolute path from the same bundle in the Codex Node tool. For the vendor's availability rule, `bb-chrome` counts as the listed Chrome skill in BB Codex. Chrome still needs to connect successfully through the extension.
 
-For an explicit tab mention, follow the vendor's exact-tab matching instructions. For a plain Chrome request, try the explicit Chrome selector, `agent.browsers.get("chrome")`, even if `bb-chrome` is the only listed Chrome skill. Read the selected browser's documentation before interacting with a tab. To use an already open tab, match it in the extension's open-tab list and claim it through the documented API.
+For an explicit tab mention, follow the vendor's exact-tab matching instructions. For a plain Chrome request, try the explicit Chrome selector, `agent.browsers.get("chrome")`. Read the selected browser's documentation before interacting with a tab. To use an already open tab, match it in the extension's open-tab list and claim it through the documented API.
 
 Let the extension handle tab and site access. If it denies access, surface the denial without retrying through another client. Keep the user's requested Chrome session and respect any instruction to avoid native Computer Use. Another browser, native app control, and a fresh browser profile cannot substitute for the requested session.
 

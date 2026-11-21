@@ -49,6 +49,7 @@ class InstallBBChromeTests(unittest.TestCase):
 
         result = self.install(moved_checkout)
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Updated dangling BB Chrome skill link", result.stdout)
         self.assertEqual(
             self.destination.resolve(), moved_checkout.resolve() / "bb-skills/bb-chrome"
         )
@@ -64,9 +65,9 @@ class InstallBBChromeTests(unittest.TestCase):
         self.assertEqual(list(self.destination.iterdir()), [original])
         self.assertEqual(original.read_text(), "User skill")
 
-    def test_unrelated_dangling_link_is_preserved(self):
+    def test_relative_dangling_link_is_preserved(self):
         self.destination.parent.mkdir(parents=True)
-        custom_target = self.home / "custom-skills/bb-chrome"
+        custom_target = Path("../custom/bb-skills/bb-chrome")
         self.destination.symlink_to(custom_target)
 
         result = self.install()
