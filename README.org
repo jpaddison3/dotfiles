@@ -10,6 +10,27 @@ Clone to ~~/personal-coding/dotfiles~, not anywhere under ~~/Documents~: macOS p
 - Copy VSCode settings (macOS path)
 - Set up PostgreSQL configuration
 
+** Chrome in BB Codex
+
+Run ~make install-bb-chrome~ from the permanent dotfiles clone on a Mac that
+is already set up. The skill link depends on the checkout staying in place,
+so the installer rejects linked worktrees and known scratch checkouts.
+Keep the clone outside Documents, Desktop, and Downloads so macOS permits
+BB to read the skill.
+~newcomputer.bash~ runs the same installer on new machines.
+The installer links one skill at ~~/.bb/skills/bb-chrome~. If you move the
+checkout, rerun the installer from its new location to update the link.
+Start a fresh BB Codex thread and ask it to check something in an existing
+Chrome tab.
+
+Use the ChatGPT extension in the Chrome profile with the tab you want to
+check. The skill can delegate to the Chrome integration bundled with
+~/Applications/ChatGPT.app~ if the current session lacks a working Chrome
+integration. See the [[https://learn.chatgpt.com/docs/chrome-extension][ChatGPT browser extension guide]] for setup.
+
+To uninstall the skill, trash the symlink at ~~/.bb/skills/bb-chrome~.
+Running ~newcomputer.bash~ again reinstalls it.
+
 ** Inbox triage Raycast commands
 
 Install or update the three focused Raycast Script Commands from this checkout:
