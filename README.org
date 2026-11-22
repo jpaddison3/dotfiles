@@ -56,6 +56,28 @@ per invocation. Install that backend first in the 80k-coding-tools checkout
 with ~make install-inbox-triage~. The auto command delegates local-time mode
 selection to the backend; the BOD and EOD commands pass their explicit modes.
 
+** Codex CLI automatic updates
+
+Run ~make install-codex-auto-update~ to install or reload the user launch agent.
+It runs immediately, at login, and daily at 4:00am local time; a missed daily
+run fires on wake. It calls the official ~codex update~ command against the
+shared standalone installation in ~~/.codex~, bypassing the account/speed shim.
+Both account profiles receive the same CLI update. Authentication, account
+routing, daemon settings, and the ChatGPT desktop app are managed separately.
+Existing CLI sessions continue using their current executable; new sessions
+use the updated version. This is a custom schedule for the official updater,
+not an OpenAI-provided automatic-update setting.
+
+Logs: ~~/.local/share/codex-auto-update/codex-auto-update.log~ (including failures).
+After edits that replace file inodes, rerun the install target to refresh its
+hard links. ~newcomputer.bash~ also installs this job.
+
+To disable automatic runs:
+#+begin_src sh
+launchctl bootout gui/$(id -u)/com.jpaddison.codex-auto-update
+launchctl disable gui/$(id -u)/com.jpaddison.codex-auto-update
+#+end_src
+
 ** SSH only over Tailscale
 
 Run ~make install-pf-ssh~ to let SSH in only from this Mac and from Tailscale

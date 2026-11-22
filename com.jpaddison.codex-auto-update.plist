@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jpaddison.codex-auto-update</string>
+    <key>ProgramArguments</key>
+    <array><string>/Users/jpaddison/.local/bin/codex-auto-update.sh</string></array>
+    <!-- Run on installation/login, and daily at 4:00am local. Missed calendar
+         runs fire on wake. launchd serializes invocations of this job. -->
+    <key>RunAtLoad</key><true/>
+    <key>StartCalendarInterval</key>
+    <dict><key>Hour</key><integer>4</integer><key>Minute</key><integer>0</integer></dict>
+    <key>ProcessType</key><string>Background</string>
+    <key>LowPriorityIO</key><true/>
+    <key>Nice</key><integer>10</integer>
+    <key>StandardOutPath</key>
+    <string>/Users/jpaddison/.local/share/codex-auto-update/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/jpaddison/.local/share/codex-auto-update/launchd.err.log</string>
+</dict>
+</plist>

@@ -170,6 +170,9 @@ ln -f $SCRIPTPATH/com.jpaddison.codex-expire-sessions.plist ~/Library/LaunchAgen
 launchctl bootout gui/$(id -u)/com.jpaddison.codex-expire-sessions 2>/dev/null || true
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jpaddison.codex-expire-sessions.plist
 
+# Daily stable-channel updates for the shared standalone Codex CLI.
+bash "$SCRIPTPATH/install-codex-auto-update.sh"
+
 # Daily cleanup of Claude/Codex agent scratch files after 30 idle days.
 mkdir -p ~/.local/share/agent-tmp-cleanup
 ln -f $SCRIPTPATH/agent-tmp-cleanup.sh ~/.local/bin/agent-tmp-cleanup.sh
