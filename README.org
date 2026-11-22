@@ -80,15 +80,18 @@ launchctl disable gui/$(id -u)/com.jpaddison.codex-auto-update
 
 ** Claude Code automatic updates
 
-Run ~make install-claude-auto-update~ to install or reload the user launch
-agent. It runs immediately, at login, and daily at 4:00am local time; a missed
+Run ~make install-claude-auto-update~ from the permanent checkout
+(~~/personal-coding/dotfiles~), not a temporary worktree: the installer
+hard-links the script and plist from whichever checkout runs it. The launch
+agent runs immediately, at login, and daily at 4:00am local time; a missed
 daily run fires on wake. It calls the official ~claude update~ command against
 the shared native installation (~~/.local/bin/claude~, a symlink into
 ~~/.local/share/claude/versions~), bypassing the account shim. Every account
 profile runs that one binary, so all of them receive the update. The release
 channel comes from ~autoUpdatesChannel~ in ~~/.claude/settings.json~; the job
 clears ~CLAUDE_CONFIG_DIR~ and other inherited session variables, so a manual
-run from an agent session behaves like the scheduled one.
+run from an agent session behaves like the scheduled one. Each ~claude~ call
+is limited to 30 minutes, so a hung download can't block later runs.
 
 Claude Code's built-in background updater appears to run only in interactive
 terminal sessions, so with nearly all sessions started headless by bb it

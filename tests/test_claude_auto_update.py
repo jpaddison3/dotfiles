@@ -7,6 +7,23 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# A stand-in for the native binary. The script strips the environment, so the
+# stub takes its instructions from files under HOME and writes its probe there.
+STUB = """#!/bin/bash
+[[ -z "${CLAUDE_CONFIG_DIR-}" ]] || mkdir -p "$CLAUDE_CONFIG_DIR"
+if [[ "$1" = --version ]]; then
+  if [[ -e "$HOME/version" ]]; then fail="$HOME/after-version-exit"; else fail="$HOME/before-version-exit"; fi
+  if [[ -e "$fail" ]]; then echo "version diagnostic"; exit "$(cat "$fail")"; fi
+  cat "$HOME/version" 2>/dev/null || echo "9.9.9 (Claude Code)"
+  exit 0
+fi
+printf "%s\\n" "$*" "$PWD" "${CLAUDE_CONFIG_DIR-unset}" "${DISABLE_UPDATES-unset}" \\
+  "${CLAUDECODE-unset}" > "$HOME/probe"
+[[ ! -e "$HOME/hang" ]] || sleep 30
+echo "10.0.0 (Claude Code)" > "$HOME/version"
+exit "$(cat "$HOME/exit-code" 2>/dev/null || echo 0)"
+"""
+
 
 class ClaudeAutoUpdateTest(unittest.TestCase):
     def setUp(self):
@@ -16,29 +33,17 @@ class ClaudeAutoUpdateTest(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.home)
         self.binary = self.home / ".local/share/claude/versions/9.9.9"
         self.binary.parent.mkdir(parents=True)
-        # The script strips the environment, so the stub writes its probe under HOME.
-        self.binary.write_text(
-            "#!/bin/bash\n"
-            '[[ -z "${CLAUDE_CONFIG_DIR-}" ]] || mkdir -p "$CLAUDE_CONFIG_DIR"\n'
-            'if [[ "$1" = --version ]]; then\n'
-            '  [[ ! -e "$HOME/version-exit" ]] || exit "$(cat "$HOME/version-exit")"\n'
-            '  cat "$HOME/version" 2>/dev/null || echo "9.9.9 (Claude Code)"; exit 0\n'
-            'fi\n'
-            'echo "10.0.0 (Claude Code)" > "$HOME/version"\n'
-            'printf "%s\\n" "$*" "$PWD" "${CLAUDE_CONFIG_DIR-unset}" '
-            '"${DISABLE_UPDATES-unset}" "${CLAUDECODE-unset}" '
-            '> "$HOME/probe"\n'
-            'exit "$(cat "$HOME/exit-code" 2>/dev/null || echo 0)"\n'
-        )
+        self.binary.write_text(STUB)
         self.binary.chmod(0o755)
         self.cli = self.home / ".local/bin/claude"
         self.cli.parent.mkdir(parents=True)
         self.cli.symlink_to(self.binary)
 
-    def run_update(self):
+    def run_update(self, **extra):
         env = os.environ.copy()
         env.update({"HOME": str(self.home), "CLAUDE_CONFIG_DIR": str(self.home / ".claude-gmail"),
                     "DISABLE_UPDATES": "1", "CLAUDECODE": "1"})
+        env.update(extra)
         result = subprocess.run(["/bin/bash", str(ROOT / "claude-auto-update.sh")],
                                 env=env, cwd=ROOT, capture_output=True, text=True, timeout=20)
         log = self.home / ".local/share/claude-auto-update/claude-auto-update.log"
@@ -55,25 +60,45 @@ class ClaudeAutoUpdateTest(unittest.TestCase):
         self.assertIn("After: 10.0.0 (Claude Code)", log)
         self.assertIn("Updated.", log)
 
-    def test_logs_when_already_up_to_date(self):
+    def test_logs_when_version_is_unchanged(self):
         (self.home / "version").write_text("10.0.0 (Claude Code)\n")
         result, log = self.run_update()
         self.assertEqual(result.returncode, 0, result.stderr + log)
-        self.assertIn("Already up to date", log)
+        self.assertIn("Version unchanged", log)
 
-    def test_version_check_failure_is_logged_and_propagated(self):
-        (self.home / "version-exit").write_text("7")
+    def test_accepts_a_relative_native_symlink(self):
+        self.cli.unlink()
+        self.cli.symlink_to("../share/claude/versions/9.9.9")
         result, log = self.run_update()
-        self.assertEqual(result.returncode, 7)
-        self.assertIn("--version failed before updating (exit 7)", log)
-        self.assertFalse((self.home / "probe").exists())
+        self.assertEqual(result.returncode, 0, result.stderr + log)
+        self.assertIn("Updated.", log)
 
     def test_updater_failure_is_logged_and_propagated(self):
         (self.home / "exit-code").write_text("23")
         result, log = self.run_update()
         self.assertEqual(result.returncode, 23)
-        self.assertIn("failed (exit 23)", log)
+        self.assertIn("update failed (exit 23); see output above", log)
         self.assertNotIn("After:", log)
+
+    def test_hung_update_is_stopped_at_the_time_limit(self):
+        (self.home / "hang").write_text("")
+        result, log = self.run_update(CLAUDE_AUTO_UPDATE_TIME_LIMIT="1")
+        self.assertEqual(result.returncode, 142, log)
+        self.assertIn("(exit 142, stopped at the 1s time limit)", log)
+
+    def test_version_failure_before_update_is_logged_with_its_output(self):
+        (self.home / "before-version-exit").write_text("7")
+        result, log = self.run_update()
+        self.assertEqual(result.returncode, 7)
+        self.assertIn("version diagnostic\nERROR: claude --version failed before updating (exit 7)", log)
+        self.assertFalse((self.home / "probe").exists())
+
+    def test_version_failure_after_update_is_logged_and_propagated(self):
+        (self.home / "after-version-exit").write_text("9")
+        result, log = self.run_update()
+        self.assertEqual(result.returncode, 9)
+        self.assertIn("version diagnostic\nERROR: claude --version failed after updating (exit 9)", log)
+        self.assertNotIn("Updated.", log)
 
     def assert_refuses(self):
         result, log = self.run_update()

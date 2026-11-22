@@ -36,22 +36,30 @@ fi
 cd "$install_dir"
 user="$(id -un)"
 tmp="$(getconf DARWIN_USER_TEMP_DIR 2>/dev/null || echo /tmp)"
+# Bound each call so a hung download can't hold launchd's single instance of
+# this job (and every later scheduled run) indefinitely. SIGALRM survives exec.
+limit="${CLAUDE_AUTO_UPDATE_TIME_LIMIT:-1800}"
 run_cli() {
   env -i HOME="$HOME" PATH="$PATH" USER="$user" LOGNAME="$user" \
-    SHELL=/bin/bash TMPDIR="$tmp" "$cli" "$@"
+    SHELL=/bin/bash TMPDIR="$tmp" \
+    /usr/bin/perl -e 'alarm shift; exec @ARGV or die "exec: $!\n"' "$limit" "$cli" "$@"
 }
 fail() {
-  echo "ERROR: $1 (exit $2); see output above."
-  exit "$2"
+  local status=$?
+  [[ -z "${2-}" ]] || printf '%s\n' "$2"
+  local hint=""
+  [[ "$status" -ne 142 ]] || hint=", stopped at the ${limit}s time limit"
+  echo "ERROR: $1 (exit $status$hint); see output above."
+  exit "$status"
 }
 
-before="$(run_cli --version)" || fail "claude --version failed before updating" $?
+before="$(run_cli --version)" || fail "claude --version failed before updating" "$before"
 echo "Before: $before"
-run_cli update || fail "Claude Code update failed" $?
-after="$(run_cli --version)" || fail "claude --version failed after updating" $?
+run_cli update || fail "Claude Code update failed"
+after="$(run_cli --version)" || fail "claude --version failed after updating" "$after"
 echo "After: $after"
 if [[ "$after" == "$before" ]]; then
-  echo "Already up to date; nothing changed."
+  echo "Version unchanged; see claude update's output above."
 else
   echo "Updated. Existing sessions keep their current executable."
 fi
