@@ -19,7 +19,12 @@ class ClaudeAutoUpdateTest(unittest.TestCase):
         # The script strips the environment, so the stub writes its probe under HOME.
         self.binary.write_text(
             "#!/bin/bash\n"
-            'if [[ "$1" = --version ]]; then echo "9.9.9 (Claude Code)"; exit 0; fi\n'
+            '[[ -z "${CLAUDE_CONFIG_DIR-}" ]] || mkdir -p "$CLAUDE_CONFIG_DIR"\n'
+            'if [[ "$1" = --version ]]; then\n'
+            '  [[ ! -e "$HOME/version-exit" ]] || exit "$(cat "$HOME/version-exit")"\n'
+            '  cat "$HOME/version" 2>/dev/null || echo "9.9.9 (Claude Code)"; exit 0\n'
+            'fi\n'
+            'echo "10.0.0 (Claude Code)" > "$HOME/version"\n'
             'printf "%s\\n" "$*" "$PWD" "${CLAUDE_CONFIG_DIR-unset}" '
             '"${DISABLE_UPDATES-unset}" "${CLAUDECODE-unset}" '
             '> "$HOME/probe"\n'
@@ -47,15 +52,28 @@ class ClaudeAutoUpdateTest(unittest.TestCase):
             "unset", "unset", "unset"])
         self.assertFalse((self.home / ".claude-gmail").exists())
         self.assertIn("Before: 9.9.9 (Claude Code)", log)
-        self.assertIn("After: 9.9.9 (Claude Code)", log)
-        self.assertIn("Update completed", log)
+        self.assertIn("After: 10.0.0 (Claude Code)", log)
+        self.assertIn("Updated.", log)
+
+    def test_logs_when_already_up_to_date(self):
+        (self.home / "version").write_text("10.0.0 (Claude Code)\n")
+        result, log = self.run_update()
+        self.assertEqual(result.returncode, 0, result.stderr + log)
+        self.assertIn("Already up to date", log)
+
+    def test_version_check_failure_is_logged_and_propagated(self):
+        (self.home / "version-exit").write_text("7")
+        result, log = self.run_update()
+        self.assertEqual(result.returncode, 7)
+        self.assertIn("--version failed before updating (exit 7)", log)
+        self.assertFalse((self.home / "probe").exists())
 
     def test_updater_failure_is_logged_and_propagated(self):
         (self.home / "exit-code").write_text("23")
         result, log = self.run_update()
         self.assertEqual(result.returncode, 23)
         self.assertIn("failed (exit 23)", log)
-        self.assertNotIn("Update completed", log)
+        self.assertNotIn("After:", log)
 
     def assert_refuses(self):
         result, log = self.run_update()
@@ -78,6 +96,13 @@ class ClaudeAutoUpdateTest(unittest.TestCase):
         shutil.copy(self.binary, shim)
         self.cli.unlink()
         self.cli.symlink_to(shim)
+        self.assert_refuses()
+
+    def test_refuses_a_versions_entry_that_links_elsewhere(self):
+        launcher = self.home / "launcher"
+        shutil.copy(self.binary, launcher)
+        self.binary.unlink()
+        self.binary.symlink_to(launcher)
         self.assert_refuses()
 
     def test_refuses_a_dangling_native_symlink(self):
