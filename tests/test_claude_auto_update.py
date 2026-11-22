@@ -12,6 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 STUB = """#!/bin/bash
 [[ -z "${CLAUDE_CONFIG_DIR-}" ]] || mkdir -p "$CLAUDE_CONFIG_DIR"
 if [[ "$1" = --version ]]; then
+  # A child that keeps stdout open, as a stray helper process might.
+  [[ ! -e "$HOME/hang-version" ]] || { sleep 30 & exec sleep 30; }
   if [[ -e "$HOME/version" ]]; then fail="$HOME/after-version-exit"; else fail="$HOME/before-version-exit"; fi
   if [[ -e "$fail" ]]; then echo "version diagnostic"; exit "$(cat "$fail")"; fi
   cat "$HOME/version" 2>/dev/null || echo "9.9.9 (Claude Code)"
@@ -19,7 +21,7 @@ if [[ "$1" = --version ]]; then
 fi
 printf "%s\\n" "$*" "$PWD" "${CLAUDE_CONFIG_DIR-unset}" "${DISABLE_UPDATES-unset}" \\
   "${CLAUDECODE-unset}" > "$HOME/probe"
-[[ ! -e "$HOME/hang" ]] || sleep 30
+[[ ! -e "$HOME/hang" ]] || exec sleep 30
 echo "10.0.0 (Claude Code)" > "$HOME/version"
 exit "$(cat "$HOME/exit-code" 2>/dev/null || echo 0)"
 """
@@ -85,6 +87,18 @@ class ClaudeAutoUpdateTest(unittest.TestCase):
         result, log = self.run_update(CLAUDE_AUTO_UPDATE_TIME_LIMIT="1")
         self.assertEqual(result.returncode, 142, log)
         self.assertIn("(exit 142, stopped at the 1s time limit)", log)
+
+    def test_hung_version_check_is_stopped_at_the_time_limit(self):
+        (self.home / "hang-version").write_text("")
+        result, log = self.run_update(CLAUDE_AUTO_UPDATE_TIME_LIMIT="1")
+        self.assertEqual(result.returncode, 142, log)
+        self.assertIn("--version failed before updating (exit 142, stopped at the 1s", log)
+
+    def test_invalid_time_limit_falls_back_to_the_default(self):
+        (self.home / "exit-code").write_text("5")
+        result, log = self.run_update(CLAUDE_AUTO_UPDATE_TIME_LIMIT="0")
+        self.assertEqual(result.returncode, 5, log)
+        self.assertNotIn("time limit", log)
 
     def test_version_failure_before_update_is_logged_with_its_output(self):
         (self.home / "before-version-exit").write_text("7")

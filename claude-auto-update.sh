@@ -20,7 +20,7 @@ install_dir="$HOME/.local/share/claude"
 # the install this job updates.
 target="$(readlink "$cli" || true)"
 [[ -z "$target" || "$target" = /* ]] || target="$(dirname -- "$cli")/$target"
-if [[ ! -L "$cli" || -z "$target" || -L "$target" || ! -f "$target" || ! -x "$target" ]] \
+if [[ ! -L "$cli" || -L "$target" || ! -f "$target" || ! -x "$target" ]] \
     || ! [[ "$(dirname -- "$target")" -ef "$install_dir/versions" ]]; then
   echo "ERROR: $cli is not the native Claude Code installation; nothing changed."
   exit 1
@@ -38,7 +38,9 @@ user="$(id -un)"
 tmp="$(getconf DARWIN_USER_TEMP_DIR 2>/dev/null || echo /tmp)"
 # Bound each call so a hung download can't hold launchd's single instance of
 # this job (and every later scheduled run) indefinitely. SIGALRM survives exec.
+# The override exists for tests; anything but a positive integer keeps 1800.
 limit="${CLAUDE_AUTO_UPDATE_TIME_LIMIT:-1800}"
+[[ "$limit" =~ ^[1-9][0-9]*$ ]] || limit=1800
 run_cli() {
   env -i HOME="$HOME" PATH="$PATH" USER="$user" LOGNAME="$user" \
     SHELL=/bin/bash TMPDIR="$tmp" \
@@ -46,17 +48,24 @@ run_cli() {
 }
 fail() {
   local status=$?
-  [[ -z "${2-}" ]] || printf '%s\n' "$2"
   local hint=""
   [[ "$status" -ne 142 ]] || hint=", stopped at the ${limit}s time limit"
   echo "ERROR: $1 (exit $status$hint); see output above."
   exit "$status"
 }
+# Capture --version through a file rather than $(...): a command substitution
+# waits for every process holding its pipe, so a stray child of the CLI could
+# outlast the time limit.
+version_file="$log_dir/version.out"
+cli_version() {
+  run_cli --version > "$version_file" || { local status=$?; cat "$version_file" >&2; return "$status"; }
+  cat "$version_file"
+}
 
-before="$(run_cli --version)" || fail "claude --version failed before updating" "$before"
+before="$(cli_version)" || fail "claude --version failed before updating"
 echo "Before: $before"
 run_cli update || fail "Claude Code update failed"
-after="$(run_cli --version)" || fail "claude --version failed after updating" "$after"
+after="$(cli_version)" || fail "claude --version failed after updating"
 echo "After: $after"
 if [[ "$after" == "$before" ]]; then
   echo "Version unchanged; see claude update's output above."
