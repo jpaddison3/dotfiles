@@ -13,7 +13,7 @@ STUB = """#!/bin/bash
 [[ -z "${CLAUDE_CONFIG_DIR-}" ]] || mkdir -p "$CLAUDE_CONFIG_DIR"
 if [[ "$1" = --version ]]; then
   # A child that keeps stdout open, as a stray helper process might.
-  [[ ! -e "$HOME/hang-version" ]] || { sleep 30 & exec sleep 30; }
+  [[ ! -e "$HOME/hang-version" ]] || { sleep 5 & exec sleep 30; }
   if [[ -e "$HOME/version" ]]; then fail="$HOME/after-version-exit"; else fail="$HOME/before-version-exit"; fi
   if [[ -e "$fail" ]]; then echo "version diagnostic"; exit "$(cat "$fail")"; fi
   cat "$HOME/version" 2>/dev/null || echo "9.9.9 (Claude Code)"

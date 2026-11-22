@@ -56,8 +56,9 @@ fail() {
 # Capture --version through a private file, never by running the CLI inside
 # $(...): a command substitution waits for every process holding its pipe, so a
 # stray child of the CLI could outlast the time limit. Per-run files keep a
-# manual run that overlaps the scheduled one from mixing their output.
-version_file="$(mktemp "$log_dir/version.XXXXXX")"
+# manual run that overlaps the scheduled one from mixing their output; the OS
+# cleans the temp dir if a killed run leaves one behind.
+version_file="$(mktemp "$tmp/claude-auto-update-version.XXXXXX")"
 trap 'rm -f "$version_file"' EXIT
 cli_version() {
   run_cli --version > "$version_file" || { local status=$?; cat "$version_file"; return "$status"; }
