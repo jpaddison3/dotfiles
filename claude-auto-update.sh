@@ -53,19 +53,22 @@ fail() {
   echo "ERROR: $1 (exit $status$hint); see output above."
   exit "$status"
 }
-# Capture --version through a file rather than $(...): a command substitution
-# waits for every process holding its pipe, so a stray child of the CLI could
-# outlast the time limit.
-version_file="$log_dir/version.out"
+# Capture --version through a private file, never by running the CLI inside
+# $(...): a command substitution waits for every process holding its pipe, so a
+# stray child of the CLI could outlast the time limit. Per-run files keep a
+# manual run that overlaps the scheduled one from mixing their output.
+version_file="$(mktemp "$log_dir/version.XXXXXX")"
+trap 'rm -f "$version_file"' EXIT
 cli_version() {
-  run_cli --version > "$version_file" || { local status=$?; cat "$version_file" >&2; return "$status"; }
-  cat "$version_file"
+  run_cli --version > "$version_file" || { local status=$?; cat "$version_file"; return "$status"; }
 }
 
-before="$(cli_version)" || fail "claude --version failed before updating"
+cli_version || fail "claude --version failed before updating"
+before="$(<"$version_file")"
 echo "Before: $before"
 run_cli update || fail "Claude Code update failed"
-after="$(cli_version)" || fail "claude --version failed after updating"
+cli_version || fail "claude --version failed after updating"
+after="$(<"$version_file")"
 echo "After: $after"
 if [[ "$after" == "$before" ]]; then
   echo "Version unchanged; see claude update's output above."

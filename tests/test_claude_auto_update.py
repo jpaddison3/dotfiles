@@ -23,6 +23,9 @@ printf "%s\\n" "$*" "$PWD" "${CLAUDE_CONFIG_DIR-unset}" "${DISABLE_UPDATES-unset
   "${CLAUDECODE-unset}" > "$HOME/probe"
 [[ ! -e "$HOME/hang" ]] || exec sleep 30
 echo "10.0.0 (Claude Code)" > "$HOME/version"
+# exec keeps the pending alarm, and alarm(0) returns the seconds it had left.
+[[ ! -e "$HOME/report-alarm" ]] || exec /usr/bin/perl -e \
+  'open my $f, ">", "$ENV{HOME}/alarm" or die; print $f alarm(0)'
 exit "$(cat "$HOME/exit-code" 2>/dev/null || echo 0)"
 """
 
@@ -61,6 +64,7 @@ class ClaudeAutoUpdateTest(unittest.TestCase):
         self.assertIn("Before: 9.9.9 (Claude Code)", log)
         self.assertIn("After: 10.0.0 (Claude Code)", log)
         self.assertIn("Updated.", log)
+        self.assertEqual(list((self.home / ".local/share/claude-auto-update").glob("version.*")), [])
 
     def test_logs_when_version_is_unchanged(self):
         (self.home / "version").write_text("10.0.0 (Claude Code)\n")
@@ -95,10 +99,11 @@ class ClaudeAutoUpdateTest(unittest.TestCase):
         self.assertIn("--version failed before updating (exit 142, stopped at the 1s", log)
 
     def test_invalid_time_limit_falls_back_to_the_default(self):
-        (self.home / "exit-code").write_text("5")
-        result, log = self.run_update(CLAUDE_AUTO_UPDATE_TIME_LIMIT="0")
-        self.assertEqual(result.returncode, 5, log)
-        self.assertNotIn("time limit", log)
+        (self.home / "report-alarm").write_text("")
+        for value in ["0", "30m", ""]:
+            result, log = self.run_update(CLAUDE_AUTO_UPDATE_TIME_LIMIT=value)
+            self.assertEqual(result.returncode, 0, log)
+            self.assertGreater(int((self.home / "alarm").read_text()), 1790, value)
 
     def test_version_failure_before_update_is_logged_with_its_output(self):
         (self.home / "before-version-exit").write_text("7")
