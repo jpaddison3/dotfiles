@@ -15,7 +15,7 @@ When the user explicitly asks to open a known standalone HTML file that an agent
 /usr/bin/open -a "Google Chrome" '/absolute/path/Preview Page.html'
 ```
 
-Run this launch through the shell's normal approval flow if it needs to run outside the Codex sandbox to reach desktop Chrome. In a sandboxed BB Codex session with an approval option, request that execution up front. Keep the approval scoped to the single launch.
+Run this launch through the shell's normal approval flow if it needs to run outside the Codex sandbox to reach desktop Chrome. In a sandboxed BB Codex session with an approval option, request that execution up front. Keep the approval scoped to the single launch. A sandboxed `open` can fail to find an installed copy of Chrome. Report the sandbox limit if that is what the evidence shows.
 
 Browser Use limits page URLs to HTTP(S). Its permissions apply to origins by scheme, host, and port, with no way to grant inspection for a single local file. Broad local-file access could expose unrelated private files that Chrome can render. That risk is an inference from the permission model. [OpenAI configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
 
@@ -23,9 +23,9 @@ Skip Browser Use navigation, inspection, and interaction for all `file:` pages. 
 
 The macOS handoff opens that specific artifact as Finder would. Chrome can run its JavaScript and load its resources, so use this route only for the known artifact. The handoff grants no browser permissions and returns no page content or tab control. Stop when macOS accepts it. Report launch acceptance and claim a visible load only if independently verified. Leave the tab for the user to view.
 
-If the file or Chrome is unavailable, or the command fails, report the specific blocker. When the file exists, give its exact absolute path and tell the user to press **⌘O** in Chrome and select that file.
-
 Carry any Browser Use denial through as issued. Never retry a denied Browser Use action through `open`, another shell command, or another browser route. A new, explicit request to hand the known artifact to the user for their own viewing is a separate operation when it requires no part of the denied Browser Use action.
+
+If the automatic handoff is unavailable, fails, or falls outside this route's scope, report the specific blocker. For an existing file the user wants to view, give its exact absolute path. Tell the user to press **⌘O** in Chrome, then **⌘⇧G**, paste the enclosing folder's absolute path (provide it), press Return, and select the file. This works for hidden folders such as `.bb`. Use the same manual handoff if a Browser Use denial prevented completing the current viewing request.
 
 ## Browse or use an existing Chrome session
 
