@@ -1,6 +1,6 @@
 ---
 name: bb-chrome
-description: BB Codex only. Open standalone local HTML previews for the user in desktop Google Chrome. Use the ChatGPT browser extension when asked to use Google Chrome for web browsing or inspect an existing Chrome tab or signed-in Chrome session.
+description: Use when asked to use Google Chrome in BB Codex, including opening a standalone local HTML preview for the user or using the ChatGPT browser extension for web pages, existing Chrome tabs, and signed-in Chrome sessions.
 ---
 
 # Chrome in BB Codex
@@ -15,9 +15,11 @@ When the user explicitly asks to open a known standalone HTML file that an agent
 /usr/bin/open -a "Google Chrome" '/absolute/path/Preview Page.html'
 ```
 
-Run this launch through the shell's normal approval flow if it needs to run outside the Codex sandbox to reach desktop Chrome. In a sandboxed BB Codex session with an approval option, request that execution up front. Keep the approval scoped to the single launch. A sandboxed `open` can fail to find an installed copy of Chrome. Report the sandbox limit if that is what the evidence shows.
+In a sandboxed BB Codex session, use the shell's normal approval flow up front to run the launch outside the sandbox when that option is available. A sandboxed `open` can fail to find an installed copy of Chrome. If a launch already failed because of the sandbox, retry the exact command once through the approval flow when available. Keep approval scoped to the single launch. Report the sandbox limit if it prevents the handoff.
 
-Browser Use limits page URLs to HTTP(S). Its permissions apply to origins by scheme, host, and port, with no way to grant inspection for a single local file. Broad local-file access could expose unrelated private files that Chrome can render. That risk is an inference from the permission model. [OpenAI configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
+Browser Use limits page URLs to HTTP(S). OpenAI documents origin permissions by scheme, host, and port, with no way to grant inspection for a single local file. [OpenAI configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
+
+Broad local-file access could expose unrelated private files that Chrome can render. That risk is an inference from the permission model. OpenAI has not stated its rationale for the limit.
 
 Skip Browser Use navigation, inspection, and interaction for all `file:` pages. If the user asks you to check how a local HTML file renders, explain that Browser Use cannot inspect it. If they also independently ask you to open the known artifact for their own viewing, explain the inspection limit up front and carry out that handoff alone.
 
@@ -25,7 +27,7 @@ The macOS handoff opens that specific artifact as Finder would. Chrome can run i
 
 Carry any Browser Use denial through as issued. Never retry a denied Browser Use action through `open`, another shell command, or another browser route. A new, explicit request to hand the known artifact to the user for their own viewing is a separate operation when it requires no part of the denied Browser Use action.
 
-If the automatic handoff is unavailable, fails, or falls outside this route's scope, report the specific blocker. For an existing file the user wants to view, give its exact absolute path. Tell the user to press **⌘O** in Chrome, then **⌘⇧G**, paste the enclosing folder's absolute path (provide it), press Return, and select the file. This works for hidden folders such as `.bb`. Use the same manual handoff if a Browser Use denial prevented completing the current viewing request.
+If the automatic handoff is unavailable, fails, or falls outside this route's scope, report the specific blocker. For an existing file the user wants to view, give its exact absolute path. Tell the user to press **⌘O** in Chrome, then **⌘⇧G**, paste the enclosing folder's absolute path (provide it), press Return, select the file, and click **Open**. This reaches hidden folders such as `.bb`. For a filename that starts with a dot, use **⌘⇧.** in the Open dialog to show hidden files. Use the same manual handoff if a Browser Use denial prevented completing the current viewing request.
 
 ## Browse or use an existing Chrome session
 
