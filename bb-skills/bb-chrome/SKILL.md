@@ -1,6 +1,6 @@
 ---
 name: bb-chrome
-description: Use when asked to use Google Chrome in BB Codex, including opening a standalone local HTML preview for the user or using the ChatGPT browser extension for web pages, existing Chrome tabs, and signed-in Chrome sessions.
+description: BB Codex only. Use when asked to use Google Chrome, including opening a standalone local HTML preview for the user or using the ChatGPT browser extension for web pages, existing Chrome tabs, and signed-in Chrome sessions.
 ---
 
 # Chrome in BB Codex
@@ -23,7 +23,7 @@ Broad local-file access could expose unrelated private files that Chrome can ren
 
 Skip Browser Use navigation, inspection, and interaction for all `file:` pages. If the user asks you to check how a local HTML file renders, explain that Browser Use cannot inspect it. If they also independently ask you to open the known artifact for their own viewing, explain the inspection limit up front and carry out that handoff alone.
 
-The macOS handoff opens that specific artifact as Finder would. Chrome can run its JavaScript and load its resources, so use this route only for the known artifact. The handoff grants no browser permissions and returns no page content or tab control. Stop when macOS accepts it. Report launch acceptance and claim a visible load only if independently verified. Leave the tab for the user to view.
+The macOS handoff opens that specific artifact as if the user had opened it in Chrome themselves. Chrome can run its JavaScript and load its resources, so use this route only for the known artifact. The handoff grants no browser permissions and returns no page content or tab control. Stop when macOS accepts it. Report launch acceptance and claim a visible load only if independently verified. Leave the tab for the user to view.
 
 Carry any Browser Use denial through as issued. Never retry a denied Browser Use action through `open`, another shell command, or another browser route. A new, explicit request to hand the known artifact to the user for their own viewing is a separate operation when it requires no part of the denied Browser Use action.
 
@@ -31,7 +31,7 @@ If the automatic handoff is unavailable, fails, or falls outside this route's sc
 
 ## Browse or use an existing Chrome session
 
-Select extension-backed Chrome for approved HTTP(S) navigation, inspection, and interaction, including requests involving an existing web tab or signed-in session. If native Computer Use has already reported that Chrome was not approved, continue with the extension path.
+Select extension-backed Chrome for HTTP(S) navigation, inspection, and interaction, including requests involving an existing web tab or signed-in session. The extension handles its normal approvals. If native Computer Use has already reported that Chrome was not approved, continue with the extension path.
 
 Choose the source before starting the browser client. Prefer the session's OpenAI `control-chrome` or Browser skill when its bootstrap client file exists and its browser selection instructions document a selector scoped to Chrome. Older clients may document only the generic extension selector. Treat those clients and sessions with only BB Browser Automation as missing a usable Chrome integration.
 
