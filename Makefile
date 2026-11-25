@@ -1,9 +1,10 @@
 SHELL := /bin/bash
 
-.PHONY: check install-bb-chrome install-inbox-triage-raycast install-codex-auto-update install-pf-ssh
+.PHONY: check install-bb-chrome install-inbox-triage-raycast install-codex-auto-update install-claude-auto-update install-pf-ssh
 
 check:
-	@for script in install-bb-chrome.sh install-inbox-triage-raycast.sh raycast/inbox-triage/*.sh keep-awake.sh keep-awakectl install-keep-awake.sh codex-shim/claude-account agent-tmp-cleanup.sh codex-auto-update.sh install-codex-auto-update.sh install-pf-ssh.sh; do /bin/bash -n "$$script" || exit; done
+	@for script in install-bb-chrome.sh install-inbox-triage-raycast.sh raycast/inbox-triage/*.sh keep-awake.sh keep-awakectl install-keep-awake.sh codex-shim/claude-account agent-tmp-cleanup.sh codex-auto-update.sh install-codex-auto-update.sh claude-auto-update.sh install-claude-auto-update.sh install-pf-ssh.sh; do /bin/bash -n "$$script" || exit; done
+	@/usr/bin/plutil -lint -s com.jpaddison.*.plist
 	@source "$(HOME)/venvs/py3/bin/activate" && python3 -m unittest discover -s tests -p 'test_*.py'
 
 install-bb-chrome:
@@ -14,6 +15,9 @@ install-inbox-triage-raycast:
 
 install-codex-auto-update:
 	@./install-codex-auto-update.sh
+
+install-claude-auto-update:
+	@./install-claude-auto-update.sh
 
 install-pf-ssh:
 	@./install-pf-ssh.sh
