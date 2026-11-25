@@ -18,10 +18,12 @@
   e2e tests, should run outside the sandbox from the first attempt.
 - A browser task that needs my existing sign-ins or open tabs belongs in my Chrome, not the
   headless browser. That includes a request that names only a website I'm signed in to, or asks
-  you to look at or visually check one, without mentioning Chrome. In BB Codex, load the
-  `bb-chrome` skill and reach Chrome through the ChatGPT Chrome extension, as it describes. If
-  you see "The browser access host is unavailable", or native Computer Use reports that Chrome
-  isn't approved, follow that skill's recovery through the extension client bundled with the
-  ChatGPT app. Don't report Chrome as unavailable until that path has failed, and then name the
-  step that stopped you, such as the extension, a site permission, or the signed-in account. Other
-  providers use their own Chrome tool.
+  you to look at or visually check one, without mentioning Chrome. If the headless browser lands
+  on a sign-in page, switch to Chrome rather than reporting the page as inaccessible. In BB
+  Codex, load the `bb-chrome` skill and reach Chrome through the ChatGPT Chrome extension, as it
+  describes. If you see "The browser access host is unavailable", follow that skill's recovery
+  through the extension client bundled with the ChatGPT app; if native Computer Use reports that
+  Chrome isn't approved, carry on with the extension path as the skill says. Neither error alone
+  means Chrome is unavailable. When the extension path does stop you, report the blocker at the
+  step where it happened, such as the extension, a site permission, or the signed-in account,
+  without retrying through another client. Other providers use their own Chrome tool.
