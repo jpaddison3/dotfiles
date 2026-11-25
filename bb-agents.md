@@ -10,3 +10,9 @@
   questions, or findings in plain text. Cards, prompts, or errors can put the row on my turn,
   so handle blockers in your thread and archive temporary helpers after collecting their outcomes.
   Reserve top-level threads for work meant for me, since they can put a separate row on my turn.
+- Playwright browsers (Chromium, WebKit) crash within a second of launch inside the agent sandbox,
+  both Claude's and Codex's, because the sandbox blocks the Mach port registration they need at
+  startup. It isn't flakiness. For browsing, screenshots and page checks, use
+  `bb browser-automation open --backend local --machine Apophis --headless`; bb starts that
+  browser outside the sandbox. Use your Chrome tool when you need my logins. Scripts that must
+  call Playwright directly, such as e2e tests, should run outside the sandbox from the first attempt.
