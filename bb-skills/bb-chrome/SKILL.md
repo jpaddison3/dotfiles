@@ -1,11 +1,33 @@
 ---
 name: bb-chrome
-description: BB Codex only. Use the ChatGPT browser extension when asked to use Google Chrome or inspect an existing Chrome tab or signed-in Chrome session.
+description: BB Codex only. Use when asked to open a standalone local HTML preview in desktop Google Chrome, browse in Chrome, or use an existing Chrome tab or signed-in Chrome session.
 ---
 
 # Chrome in BB Codex
 
-In other BB providers, follow that provider's browser instructions. In BB Codex, select extension-backed Chrome explicitly for webpage tasks in the user's Chrome session. If native Computer Use has already reported that Chrome was not approved, continue with the extension path.
+In other BB providers, follow that provider's browser instructions. In BB Codex, choose between a file handoff and a browser task before starting a browser client.
+
+## Open a local HTML preview for the user
+
+When the user explicitly asks to open a known, agent-created standalone HTML file for their own viewing in desktop Chrome on their Mac, confirm that the file exists on that Mac and hand it directly to macOS. Pass the exact absolute file path as one shell-quoted argument, including when the name has spaces.
+
+```sh
+/usr/bin/open -a "Google Chrome" '/absolute/path/Preview Page.html'
+```
+
+Run this launch through the shell's normal approval flow if it needs to run outside the Codex sandbox to reach desktop Chrome. In a sandboxed BB Codex session with an approval option, request that execution up front. Keep the approval scoped to the single launch.
+
+Browser Use limits page URLs to HTTP(S). Its permissions apply to origins by scheme, host, and port, with no way to grant inspection for a single local file. Broad local-file access could expose unrelated private files that Chrome can render. That risk is an inference from the permission model. [OpenAI configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
+
+The macOS handoff opens that specific artifact as Finder would. Chrome can run its JavaScript and load its resources, so use this route only for the known artifact. The handoff grants no browser permissions and returns no page content or tab control. Stop when macOS accepts it. Report launch acceptance and claim a visible load only if independently verified. Leave the tab for the user to view.
+
+If the file or Chrome is unavailable, or the command fails, report the specific blocker. When the file exists, give its exact absolute path and tell the user to press **⌘O** in Chrome and select that file.
+
+Carry any Browser Use denial through as issued. Choose the file handoff at the start of a user request specifically for their own viewing. Never switch to `open`, another shell command, or another browser route to fulfill a request that Browser Use has denied.
+
+## Browse or use an existing Chrome session
+
+Select extension-backed Chrome for approved webpage navigation, inspection, and interaction, including requests involving an existing tab or signed-in session. If native Computer Use has already reported that Chrome was not approved, continue with the extension path.
 
 Choose the source before starting the browser client. Prefer the session's OpenAI `control-chrome` or Browser skill when its bootstrap client file exists and its browser selection instructions document a selector scoped to Chrome. Older clients may document only the generic extension selector. Treat those clients and sessions with only BB Browser Automation as missing a usable Chrome integration.
 
