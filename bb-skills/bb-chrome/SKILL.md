@@ -1,6 +1,6 @@
 ---
 name: bb-chrome
-description: BB Codex only. Use when asked to open a standalone local HTML preview in desktop Google Chrome, browse in Chrome, or use an existing Chrome tab or signed-in Chrome session.
+description: BB Codex only. Open standalone local HTML previews for the user in desktop Google Chrome. Use the ChatGPT browser extension when asked to use Google Chrome for web browsing or inspect an existing Chrome tab or signed-in Chrome session.
 ---
 
 # Chrome in BB Codex
@@ -9,7 +9,7 @@ In other BB providers, follow that provider's browser instructions. In BB Codex,
 
 ## Open a local HTML preview for the user
 
-When the user explicitly asks to open a known, agent-created standalone HTML file for their own viewing in desktop Chrome on their Mac, confirm that the file exists on that Mac and hand it directly to macOS. Pass the exact absolute file path as one shell-quoted argument, including when the name has spaces.
+When the user explicitly asks to open a known standalone HTML file that an agent created in this or an earlier thread for their own viewing in desktop Chrome on their Mac, confirm that the file exists on that Mac and hand it directly to macOS. Pass the exact absolute file path as one shell argument, quoting it for the actual filename, including spaces and any literal quote characters.
 
 ```sh
 /usr/bin/open -a "Google Chrome" '/absolute/path/Preview Page.html'
@@ -19,15 +19,17 @@ Run this launch through the shell's normal approval flow if it needs to run outs
 
 Browser Use limits page URLs to HTTP(S). Its permissions apply to origins by scheme, host, and port, with no way to grant inspection for a single local file. Broad local-file access could expose unrelated private files that Chrome can render. That risk is an inference from the permission model. [OpenAI configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
 
+Skip Browser Use navigation, inspection, and interaction for all `file:` pages. If the user asks you to check how a local HTML file renders, explain that Browser Use cannot inspect it. If they also independently ask you to open the known artifact for their own viewing, explain the inspection limit up front and carry out that handoff alone.
+
 The macOS handoff opens that specific artifact as Finder would. Chrome can run its JavaScript and load its resources, so use this route only for the known artifact. The handoff grants no browser permissions and returns no page content or tab control. Stop when macOS accepts it. Report launch acceptance and claim a visible load only if independently verified. Leave the tab for the user to view.
 
 If the file or Chrome is unavailable, or the command fails, report the specific blocker. When the file exists, give its exact absolute path and tell the user to press **⌘O** in Chrome and select that file.
 
-Carry any Browser Use denial through as issued. Choose the file handoff at the start of a user request specifically for their own viewing. Never switch to `open`, another shell command, or another browser route to fulfill a request that Browser Use has denied.
+Carry any Browser Use denial through as issued. Never retry a denied Browser Use action through `open`, another shell command, or another browser route. A new, explicit request to hand the known artifact to the user for their own viewing is a separate operation when it requires no part of the denied Browser Use action.
 
 ## Browse or use an existing Chrome session
 
-Select extension-backed Chrome for approved webpage navigation, inspection, and interaction, including requests involving an existing tab or signed-in session. If native Computer Use has already reported that Chrome was not approved, continue with the extension path.
+Select extension-backed Chrome for approved HTTP(S) navigation, inspection, and interaction, including requests involving an existing web tab or signed-in session. If native Computer Use has already reported that Chrome was not approved, continue with the extension path.
 
 Choose the source before starting the browser client. Prefer the session's OpenAI `control-chrome` or Browser skill when its bootstrap client file exists and its browser selection instructions document a selector scoped to Chrome. Older clients may document only the generic extension selector. Treat those clients and sessions with only BB Browser Automation as missing a usable Chrome integration.
 
