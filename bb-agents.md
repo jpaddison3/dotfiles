@@ -18,6 +18,6 @@
   e2e tests, should run outside the sandbox from the first attempt.
 - A browser task that needs my sign-ins or open tabs goes to my Chrome, not the headless
   browser, even if the request never mentions Chrome. In BB Codex, use the `bb-chrome` skill:
-  "The browser access host is unavailable" or "Chrome isn't approved" means following its
-  recovery, not that Chrome is unavailable. Report any blocker at the step where it happens;
-  don't switch browsers.
+  "The browser access host is unavailable" or a report that Chrome isn't approved means following
+  its recovery, not that Chrome is unavailable. Report any blocker at the step where it happens;
+  don't fall back to another browser.
