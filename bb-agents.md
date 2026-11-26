@@ -16,16 +16,8 @@
   sign-ins or open tabs, use `bb browser-automation open --backend local --machine Apophis --headless`;
   bb starts that browser outside the sandbox. Scripts that must call Playwright directly, such as
   e2e tests, should run outside the sandbox from the first attempt.
-- A browser task that needs my existing sign-ins or open tabs belongs in my Chrome, not the
-  headless browser. That includes a request that never mentions Chrome but names a page only my
-  signed-in session can show, or asks you to look at or visually check one, and a headless check
-  that lands on a sign-in page for a site I'm signed in to when the task needs my session. Other
-  providers use their own Chrome tool, or say they have none. In BB Codex, load the `bb-chrome`
-  skill and reach Chrome through the ChatGPT Chrome extension, as it describes. There, "The
-  browser access host is unavailable" means following that skill's recovery through the
-  extension client bundled with the ChatGPT app, and a native Computer Use report that Chrome
-  isn't approved means carrying on with the extension path as the skill says. Neither error alone
-  means Chrome is unavailable. When the extension path does stop you there, follow the skill's
-  guidance for that failure, then report the blocker at the step where it happened, such as the
-  extension, a site permission, or the signed-in account. Don't substitute native Computer Use,
-  another browser, or a fresh profile.
+- A browser task that needs my sign-ins or open tabs goes to my Chrome, not the headless
+  browser, even if the request never mentions Chrome. In BB Codex, use the `bb-chrome` skill:
+  "The browser access host is unavailable" or "Chrome isn't approved" means following its
+  recovery, not that Chrome is unavailable. Report any blocker at the step where it happens;
+  don't switch browsers.
